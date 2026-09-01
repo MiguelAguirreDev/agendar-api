@@ -111,6 +111,8 @@
     .bloqueo-item:last-child { border-bottom: none; }
     .auth-loading { position:fixed; inset:0; background:#f1f5f9; z-index:9999; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:16px; }
     .auth-loading .spinner { width:48px; height:48px; border-width:4px; }
+    body.dark .auth-loading { background:#0f172a; }
+    body.dark .auth-loading span { color:#94a3b8; }
     .auth-hidden { display:none !important; }
     .cal-nav { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
     .cal-nav button { background:#0b5345; color:#fff; border:none; padding:8px 16px; border-radius:8px; font-size:0.85rem; font-family:inherit; font-weight:600; cursor:pointer; }
@@ -147,25 +149,62 @@
     .pie-legend span { display:inline-flex; align-items:center; gap:6px; margin-right:12px; }
     .pie-dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
     @media (max-width:768px) {
-      .container { padding: 12px; }
-      th, td { padding: 4px 4px; font-size: 0.6rem; }
-      nav { padding: 10px 12px; }
-      nav h2 { font-size: 0.85rem; }
+      *, *::before, *::after { box-sizing: border-box; }
+      html, body { width: 100%; max-width: 100%; margin: 0; padding: 0; overflow-x: hidden; }
+      body { padding: 0 10px; font-size: 14px; }
+      .container { width: 100%; max-width: 100%; padding: 0; margin: 0; box-sizing: border-box; }
+      nav { flex-wrap: wrap; gap: 8px; padding: 12px; }
+      nav h2 { font-size: 1rem; flex: 1 1 auto; min-width: 0; }
+      nav .nav-actions { flex-wrap: wrap; gap: 8px; }
       nav .user-email { display: none; }
-      .search-box { width: 100px; font-size:0.75rem; padding:8px 10px; }
-      .btn-sm { font-size:0.7rem; padding:6px 10px; }
-      .btn-xs { font-size: 0.55rem; padding: 2px 5px; }
-      .stats { grid-template-columns: repeat(3, 1fr); gap:6px; }
-      .stat-card { padding:10px; }
-      .stat-card .num { font-size:1.2rem; }
-      .header-actions { gap:6px; }
-      .header-actions input[type="date"] { font-size:0.7rem; padding:6px 8px; width:110px; }
-      .mobile-hide { display:none; }
+      .header-bar { flex-direction: column; align-items: stretch; gap: 10px; }
+      .header-bar h1 { font-size: 1.2rem; }
+      .header-actions { display: flex; flex-direction: column; align-items: stretch; gap: 8px; width: 100%; }
+      .header-actions > *, .header-actions input[type="date"], .header-actions .btn-sm { width: 100%; max-width: 100%; box-sizing: border-box; }
+      .search-box { width: 100%; max-width: 100%; font-size: 0.9rem; padding: 12px 14px; margin-bottom: 8px; box-sizing: border-box; }
+      .btn-sm, .btn, .filtro-btn { font-size: 0.85rem; padding: 12px 14px; max-width: 100%; box-sizing: border-box; white-space: normal; }
+      .filtros-rapidos { flex-wrap: wrap; }
+      .stats { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+      .stat-card { padding: 10px; min-width: 0; }
+      .stat-card .num { font-size: 1.3rem; }
+      .stat-card .label { font-size: 0.7rem; }
+      .table-wrapper { overflow-x: hidden; max-width: 100%; }
+      table { max-width: 100%; }
+      th, td { padding: 8px 6px; font-size: 0.85rem; max-width: 100%; overflow-wrap: anywhere; word-break: break-word; }
+      #tablaCitas, #tablaCitas tbody, #tablaPacientes, #tablaPacientes tbody { display: block; width: 100%; max-width: 100%; }
+      #tablaCitas thead, #tablaPacientes thead { display: none; }
+      #tablaCitas tr, #tablaPacientes tr { display: block; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; margin-bottom: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); width: 100%; max-width: 100%; transition: background 0.15s; }
+      body.dark #tablaCitas tr, body.dark #tablaPacientes tr { background: #1e293b; border-color: #334155; }
+      #tablaCitas tr:hover, #tablaPacientes tr:hover { background: #f8fafc; }
+      body.dark #tablaCitas tr:hover, body.dark #tablaPacientes tr:hover { background: #334155; }
+      #tablaCitas td, #tablaPacientes td { display: block; width: 100%; max-width: 100%; padding: 6px 0; border-bottom: 1px solid #f1f5f9; font-size: 0.9rem; overflow-wrap: anywhere; word-break: break-word; background: transparent; }
+      body.dark #tablaCitas td, body.dark #tablaPacientes td { border-bottom-color: #334155; }
+      #tablaCitas tr:hover td, #tablaPacientes tr:hover td { background: transparent; }
+      #tablaCitas td:last-child, #tablaPacientes td:last-child { border-bottom: none; }
+      #tablaCitas td::before, #tablaPacientes td::before { content: attr(data-label); display: block; font-weight: 700; color: #0b5345; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+      body.dark #tablaCitas td::before, body.dark #tablaPacientes td::before { color: #7fdbd0; }
+      #tablaCitas td:first-child::before, #tablaPacientes td:first-child::before { content: ''; display: none; }
+      .actions-cell { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; width: 100%; }
+      .actions-cell .btn-xs, .actions-cell a.btn-xs { width: 100%; min-width: 0; text-align: center; justify-content: center; font-size: 0.85rem; padding: 12px 8px; border-radius: 10px; white-space: normal; }
+      .mobile-hide { display: inline-block; }
+      .name-link { font-size: 0.95rem; overflow-wrap: anywhere; word-break: break-word; display: inline-block; max-width: 100%; }
+      .cal-grid { grid-template-columns: repeat(7, 1fr); gap: 2px; }
+      .cal-day { min-width: 0; padding: 2px; }
+      .cal-day .cal-event { white-space: nowrap; }
+      #statsView { width: 100%; }
+      #statsView > div { display: block !important; width: 100%; max-width: 100%; }
+      .stats-chart { padding: 12px; margin-bottom: 12px; overflow: hidden; }
+      .stats-chart h3 { font-size: 0.95rem; }
+      .bar-chart { height: 130px; padding: 0 4px; gap: 4px; min-width: 0; }
+      .bar { min-width: 0; }
+      .pie-sample { gap: 8px; }
+      .modal-box, .modal-box.wide { width: 94%; max-width: 94%; box-sizing: border-box; }
+      .modal-box input, .modal-box select, .modal-box textarea { font-size: 0.95rem; padding: 12px; }
+      .stats-chart .pie-sample, .pie-sample { flex-wrap: wrap; }
     }
   </style>
-  <style>body{display:none}</style>
 </head>
-<body style="display:none">
+<body><script>if(localStorage.getItem('adminTheme')!=='light')document.body.classList.add('dark');</script>
   <div class="auth-loading" id="authLoading">
     <div class="spinner"></div>
     <span style="color:#64748b;font-size:0.9rem">Verificando acceso...</span>
@@ -574,7 +613,6 @@
     onAuthStateChanged(auth, (user) => {
       if (!user || !ALLOWED.includes(user.email)) { window.location.href = 'login.html'; return; }
       currentUser = user;
-      document.body.style.display = 'block';
       userEmail.textContent = user.email;
       document.getElementById('authLoading').classList.add('auth-hidden');
       document.querySelector('nav').classList.remove('auth-hidden');
@@ -638,16 +676,16 @@
         const waTel = waUy(tel);
         const waLink = tel ? `https://wa.me/${waTel}` : '#';
 
-        let html = `<td><span class="name-link" data-paciente="${ev.paciente}" data-email="${ev.email}" data-tel="${tel}">${ev.paciente}</span></td>`;
+        let html = `<td data-label="Paciente"><span class="name-link" data-paciente="${ev.paciente}" data-email="${ev.email}" data-tel="${tel}">${ev.paciente}</span></td>`;
         if (tel) {
-          html += `<td><a href="${waLink}" target="_blank" class="wa-icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg></a> ${ev.telefono}${ev.email ? ` · <a href="mailto:${ev.email}">${ev.email}</a>` : ''}</td>`;
+          html += `<td data-label="Contacto"><a href="${waLink}" target="_blank" class="wa-icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg></a> ${ev.telefono}${ev.email ? ` · <a href="mailto:${ev.email}">${ev.email}</a>` : ''}</td>`;
         } else {
-          html += `<td>${ev.email ? `<a href="mailto:${ev.email}">${ev.email}</a>` : ''}</td>`;
+          html += `<td data-label="Contacto">${ev.email ? `<a href="mailto:${ev.email}">${ev.email}</a>` : ''}</td>`;
         }
-        html += `<td>${ev.fecha}</td><td>${ev.hora}</td>`;
-        html += `<td><span class="badge ${badgeClass}">${estadoLabel}</span></td>`;
+        html += `<td data-label="Fecha">${ev.fecha}</td><td data-label="Hora">${ev.hora}</td>`;
+        html += `<td data-label="Estado"><span class="badge ${badgeClass}">${estadoLabel}</span></td>`;
 
-        html += '<td><div class="actions-cell">';
+        html += '<td data-label="Acción"><div class="actions-cell">';
         const fichaExiste = fichasPorNombre[normNombre(ev.paciente)];
         if (fichaExiste) {
           html += `<a class="btn-xs btn-primary" href="ficha.html?id=${fichaExiste.id}" title="Ver ficha de ${ev.paciente}" style="text-decoration:none;display:inline-flex;align-items:center">📋 Ficha</a>`;
@@ -1158,7 +1196,7 @@
       tbody.innerHTML = lista.map(p => {
         const ult = p.ultima || '-';
         const estStr = Object.entries(p.estados).map(([k, v]) => `${k}: ${v}`).join(' | ');
-        return `<tr class="paciente-row" data-paciente="${p.paciente}"><td><strong>${p.paciente}</strong></td><td>${p.telefono}</td><td>${p.email}</td><td>${p.visitas}</td><td>${ult}</td><td style="font-size:0.7rem;color:#64748b">${estStr}</td></tr>`;
+        return `<tr class="paciente-row" data-paciente="${p.paciente}"><td data-label="Paciente"><strong>${p.paciente}</strong></td><td data-label="Teléfono">${p.telefono}</td><td data-label="Email">${p.email}</td><td data-label="Total citas">${p.visitas}</td><td data-label="Última visita">${ult}</td><td data-label="Estado" style="font-size:0.7rem;color:#64748b">${estStr}</td></tr>`;
       }).join('');
       tbody.querySelectorAll('.paciente-row').forEach(r => r.addEventListener('click', () => {
         const nom = r.dataset.paciente;
