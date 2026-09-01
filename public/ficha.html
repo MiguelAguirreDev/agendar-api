@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ficha Clínica Podológica</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', sans-serif; background: #f1f5f9; color: #1a2a3a; min-height: 100vh; transition: background 0.3s, color 0.3s; }
+  body.dark { background: #0f172a; color: #e2e8f0; }
+  #authLoading { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; }
+  .spinner { width: 36px; height: 36px; border: 4px solid #e2e8f0; border-top-color: #1a9e8e; border-radius: 50%; animation: giro 0.8s linear infinite; margin-bottom: 12px; }
+  @keyframes giro { to { transform: rotate(360deg); } }
+  nav { background: #0b5345; color: #fff; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 12px rgba(0,0,0,0.1); }
+  nav h2 a { color: #fff; text-decoration: none; }
+  nav .nav-actions { display: flex; align-items: center; gap: 16px; }
+  nav .btn-logout, nav a.nav-link { background: rgba(255,255,255,0.15); color: #fff; border: none; padding: 8px 16px; border-radius: 8px; font-size: 0.8rem; font-family: inherit; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-block; }
+  nav .btn-logout:hover, nav a.nav-link:hover { background: rgba(255,255,255,0.25); }
+  .contenedor { max-width: 760px; margin: 24px auto; padding: 0 16px; }
+  .formulario { background: #fff; border-radius: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 24px 30px; }
+  body.dark .formulario { background: #1e293b; }
+  h1 { font-size: 22px; color: #0b5345; text-align: center; margin: 0 0 4px; }
+  body.dark h1 { color: #7fdbd0; }
+  h3 { font-size: 14px; color: #fff; background: #0b5345; padding: 8px 12px; border-radius: 6px; margin: 24px 0 12px; }
+  .fila { margin-bottom: 12px; }
+  label { display: block; font-weight: 600; margin-bottom: 4px; font-size: 13px; color: #334155; }
+  body.dark label { color: #cbd5e1; }
+  input[type=text], input[type=number], input[type=tel], input[type=date] {
+    width: 100%; padding: 9px 12px; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 14px; font-family: inherit; background: #fff; color: #1a2a3a; outline: none; }
+  input:focus { border-color: #1a9e8e; }
+  body.dark input[type=text], body.dark input[type=number], body.dark input[type=tel], body.dark input[type=date] { background: #334155; border-color: #475569; color: #e2e8f0; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .si-no { display: flex; gap: 18px; align-items: center; }
+  .si-no label { font-weight: 400; margin: 0; display: inline-flex; align-items: center; gap: 4px; }
+  .si-no input { width: auto; }
+  button[type=submit] { width: 100%; margin-top: 24px; padding: 12px; font-size: 16px; font-weight: 700; color: #fff;
+    background: #1a9e8e; border: 0; border-radius: 10px; cursor: pointer; font-family: inherit; transition: background 0.2s; }
+  button[type=submit]:hover { background: #0e6b58; }
+  .mensaje { text-align: center; font-weight: 700; padding: 14px; border-radius: 10px; margin-top: 16px; display: none; }
+  .ok { background: #d1fae5; color: #065f46; }
+  body.dark .ok { background: #0e6b58; color: #d1fae5; }
+  .err { background: #fee2e2; color: #991b1b; }
+  .acciones { display: flex; gap: 10px; margin-top: 16px; }
+  .acciones a, .acciones button { flex: 1; text-align: center; padding: 10px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 0.9rem; font-family: inherit; border: 0; cursor: pointer; }
+  .btn-otra { background: #0b5345; color: #fff; }
+  .btn-volver { background: #e2e8f0; color: #0b5345; }
+  body.dark .btn-volver { background: #334155; color: #e2e8f0; }
+  @media (max-width: 600px) { .grid, .grid-3 { grid-template-columns: 1fr; } }
+</style>
+<script>
+  if (localStorage.getItem('adminTheme') !== 'light') { document.body.classList.add('dark'); }
+</script>
+</head>
+<body>
+  <div id="authLoading">
+    <div class="spinner"></div>
+    <span style="color:#64748b;font-size:0.9rem">Verificando acceso...</span>
+  </div>
+
+  <nav id="nav" style="display:none">
+    <h2><a href="admin.html">🦶 Ficha Clínica</a></h2>
+    <div class="nav-actions">
+      <button class="btn-logout" id="btnTheme">🌙</button>
+      <button class="btn-logout" id="btnLogout">Salir</button>
+    </div>
+  </nav>
+
+  <div class="contenedor" id="contenido" style="display:none">
+    <form class="formulario" id="ficha">
+      <h1 id="formTitle">FICHA CLÍNICA PODOLÓGICA</h1>
+
+      <div class="grid">
+        <div class="fila"><label>N° Ficha Clínica</label><input type="text" name="nfic"></div>
+        <div class="fila"><label>Fecha</label><input type="date" name="fecha"></div>
+      </div>
+
+      <div class="fila"><label>Género</label>
+        <div class="si-no">
+          <label><input type="radio" name="genero" value="F" required> F</label>
+          <label><input type="radio" name="genero" value="M"> M</label>
+          <label><input type="radio" name="genero" value="No binario"> No binario</label>
+          <label><input type="radio" name="genero" value="Otro"> Otro</label>
+        </div>
+      </div>
+
+      <div class="fila"><label>Apellidos y Nombres</label><input type="text" name="nombres" required></div>
+      <div class="grid-3">
+        <div class="fila"><label>Edad</label><input type="number" name="edad"></div>
+        <div class="fila"><label>N° de Teléfono</label><input type="text" name="tel"></div>
+        <div class="fila"><label>Teléfono de Referencia</label><input type="text" name="telref"></div>
+      </div>
+      <div class="fila"><label>Profesión</label><input type="text" name="profesion"></div>
+
+      <h3>Signos Vitales</h3>
+      <div class="grid-3">
+        <div class="fila"><label>P.A</label><input type="text" name="pa"></div>
+        <div class="fila"><label>TEMP</label><input type="text" name="temp"></div>
+        <div class="fila"><label>P</label><input type="text" name="p"></div>
+        <div class="fila"><label>Glucemia Capilar</label><input type="text" name="glucemia"></div>
+        <div class="fila"><label>SPO2</label><input type="text" name="spo2"></div>
+      </div>
+
+      <h3>Historia Clínica del Paciente</h3>
+      <div class="grid">
+        <div class="fila"><label>Controlado(a)</label><div class="si-no"><label><input type="radio" name="controlado" value="Si" required> Sí</label><label><input type="radio" name="controlado" value="No"> No</label></div></div>
+        <div class="fila"><label>Diabetes Tipo I</label><div class="si-no"><label><input type="radio" name="di1" value="Si" required> Sí</label><label><input type="radio" name="di1" value="No"> No</label></div></div>
+        <div class="fila"><label>Diabetes Tipo II</label><div class="si-no"><label><input type="radio" name="di2" value="Si" required> Sí</label><label><input type="radio" name="di2" value="No"> No</label></div></div>
+        <div class="fila"><label>Hipertensión</label><div class="si-no"><label><input type="radio" name="hta" value="Si" required> Sí</label><label><input type="radio" name="hta" value="No"> No</label></div></div>
+        <div class="fila"><label>Hemofilia</label><div class="si-no"><label><input type="radio" name="hemo" value="Si" required> Sí</label><label><input type="radio" name="hemo" value="No"> No</label></div></div>
+        <div class="fila"><label>Hepatitis B</label><div class="si-no"><label><input type="radio" name="hepb" value="Si" required> Sí</label><label><input type="radio" name="hepb" value="No"> No</label></div></div>
+        <div class="fila"><label>TBC</label><div class="si-no"><label><input type="radio" name="tbc" value="Si" required> Sí</label><label><input type="radio" name="tbc" value="No"> No</label></div></div>
+        <div class="fila"><label>Cáncer</label><div class="si-no"><label><input type="radio" name="cancer" value="Si" required> Sí</label><label><input type="radio" name="cancer" value="No"> No</label></div></div>
+        <div class="fila"><label>Osteoporosis</label><div class="si-no"><label><input type="radio" name="osteo" value="Si" required> Sí</label><label><input type="radio" name="osteo" value="No"> No</label></div></div>
+        <div class="fila"><label>Artritis</label><div class="si-no"><label><input type="radio" name="artritis" value="Si" required> Sí</label><label><input type="radio" name="artritis" value="No"> No</label></div></div>
+        <div class="fila"><label>Reumatismo</label><div class="si-no"><label><input type="radio" name="reuma" value="Si" required> Sí</label><label><input type="radio" name="reuma" value="No"> No</label></div></div>
+        <div class="fila"><label>VIH</label><div class="si-no"><label><input type="radio" name="vih" value="Si" required> Sí</label><label><input type="radio" name="vih" value="No"> No</label></div></div>
+        <div class="fila"><label>Otros (enfermedades)</label><input type="text" name="otros_enf"></div>
+      </div>
+
+      <h3>¿Alérgico(a) a algún medicamento?</h3>
+      <div class="grid">
+        <div class="fila"><label>Yodo</label><div class="si-no"><label><input type="radio" name="yodo" value="Si" required> Sí</label><label><input type="radio" name="yodo" value="No"> No</label></div></div>
+        <div class="fila"><label>Anestesia</label><div class="si-no"><label><input type="radio" name="anestesia" value="Si" required> Sí</label><label><input type="radio" name="anestesia" value="No"> No</label></div></div>
+        <div class="fila"><label>Otros (alergias)</label><input type="text" name="otros_alerg"></div>
+      </div>
+
+      <h3>Actualmente está tomando</h3>
+      <div class="grid">
+        <div class="fila"><label>Anticoagulante</label><div class="si-no"><label><input type="radio" name="anticoag" value="Si" required> Sí</label><label><input type="radio" name="anticoag" value="No"> No</label></div></div>
+        <div class="fila"><label>¿Cuál?</label><input type="text" name="cual"></div>
+      </div>
+
+      <h3>Historia Clínica del Pie</h3>
+      <div class="grid">
+        <div class="fila"><label>Onicomicosis</label><div class="si-no"><label><input type="radio" name="onicomicosis" value="Si" required> Sí</label><label><input type="radio" name="onicomicosis" value="No"> No</label></div></div>
+        <div class="fila"><label>Onicogrifosis</label><div class="si-no"><label><input type="radio" name="onicogrifosis" value="Si" required> Sí</label><label><input type="radio" name="onicogrifosis" value="No"> No</label></div></div>
+        <div class="fila"><label>Onicocriptosis</label><div class="si-no"><label><input type="radio" name="onicocriptosis" value="Si" required> Sí</label><label><input type="radio" name="onicocriptosis" value="No"> No</label></div></div>
+        <div class="fila"><label>Pie de Atleta</label><div class="si-no"><label><input type="radio" name="pieatleta" value="Si" required> Sí</label><label><input type="radio" name="pieatleta" value="No"> No</label></div></div>
+        <div class="fila"><label>Hiperqueratosis Plantar</label><div class="si-no"><label><input type="radio" name="hiperquer" value="Si" required> Sí</label><label><input type="radio" name="hiperquer" value="No"> No</label></div></div>
+        <div class="fila"><label>Otros (pie)</label><input type="text" name="otros_pie"></div>
+      </div>
+
+      <div class="fila"><label>Firma del paciente</label><input type="text" name="firma"></div>
+
+      <button type="submit" id="btnSubmit">Guardar ficha</button>
+      <div class="mensaje" id="mensaje"></div>
+      <div class="acciones" id="acciones" style="display:none">
+        <button type="button" class="btn-otra" onclick="document.getElementById('ficha').reset();document.getElementById('mensaje').style.display='none';document.getElementById('acciones').style.display='none';">Otra ficha</button>
+        <a href="admin.html" class="btn-volver">Volver al admin</a>
+      </div>
+    </form>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+    import { getAuth, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+    import { getFirestore, collection, addDoc, doc, getDoc, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+    const firebaseConfig = { apiKey: 'AIzaSyCT25mmO3VtQYGr8Cwzj2t-NIF3gsWkTOg', authDomain: 'clinicadelpieisabelaguiar.firebaseapp.com', projectId: 'clinicadelpieisabelaguiar', appId: '1:685381652711:web:859a412d8779b53d49d242' };
+    const ALLOWED = ['arteyestilomodas@gmail.com', 'mailmaguirre@gmail.com'];
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const contenido = document.getElementById('contenido');
+    const authLoading = document.getElementById('authLoading');
+    const mensaje = document.getElementById('mensaje');
+    const form = document.getElementById('ficha');
+    const params = new URLSearchParams(location.search);
+    const editId = params.get('id');
+    const preNombres = params.get('nombres');
+    const preTel = params.get('tel');
+
+    function rellenarFormulario(f) {
+      const campos = ['nfic', 'fecha', 'nombres', 'edad', 'profesion', 'tel', 'telref', 'pa', 'temp', 'p', 'glucemia', 'spo2', 'otros_enf', 'otros_alerg', 'cual', 'otros_pie', 'firma'];
+      campos.forEach(c => { const el = form.querySelector(`[name="${c}"]`); if (el) el.value = f[c] || ''; });
+      const radios = ['genero', 'controlado', 'di1', 'di2', 'hta', 'hemo', 'hepb', 'tbc', 'cancer', 'osteo', 'artritis', 'reuma', 'vih', 'yodo', 'anestesia', 'anticoag', 'onicomicosis', 'onicogrifosis', 'onicocriptosis', 'pieatleta', 'hiperquer'];
+      radios.forEach(r => {
+        const el = form.querySelector(`input[name="${r}"][value="${f[r]}"]`);
+        if (el) el.checked = true;
+      });
+    }
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user || !ALLOWED.includes(user.email)) { window.location.href = 'admin.html'; return; }
+      authLoading.style.display = 'none';
+      document.getElementById('nav').style.display = 'flex';
+      contenido.style.display = 'block';
+
+      if (editId) {
+        document.getElementById('formTitle').textContent = 'EDITAR FICHA CLÍNICA';
+        document.getElementById('btnSubmit').textContent = 'Actualizar ficha';
+        try {
+          const snap = await getDoc(doc(db, 'fichas', editId));
+          if (snap.exists()) rellenarFormulario(snap.data());
+        } catch (err) {
+          mensaje.textContent = 'No se pudo cargar la ficha: ' + err.message;
+          mensaje.className = 'mensaje err';
+          mensaje.style.display = 'block';
+        }
+      } else {
+        if (preNombres) { const el = form.querySelector('[name="nombres"]'); if (el) el.value = preNombres; }
+        if (preTel) { const el = form.querySelector('[name="tel"]'); if (el) el.value = preTel; }
+        const elF = form.querySelector('[name="fecha"]'); if (elF && !elF.value) elF.value = new Date().toISOString().slice(0, 10);
+      }
+    });
+
+    document.getElementById('btnLogout').addEventListener('click', () => signOut(auth).then(() => window.location.href = 'login.html'));
+    document.getElementById('btnTheme').addEventListener('click', () => {
+      document.body.classList.toggle('dark');
+      document.getElementById('btnTheme').textContent = document.body.classList.contains('dark') ? '☀️' : '🌙';
+      localStorage.setItem('adminTheme', document.body.classList.contains('dark') ? 'dark' : 'light');
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = form.querySelector('button[type=submit]');
+      btn.disabled = true;
+      const d = Object.fromEntries(new FormData(form));
+      const datos = {
+        nfic: d.nfic || '', fecha: d.fecha || '', genero: d.genero || '',
+        nombres: d.nombres || '', edad: d.edad || '', profesion: d.profesion || '',
+        tel: d.tel || '', telref: d.telref || '', pa: d.pa || '', temp: d.temp || '',
+        p: d.p || '', glucemia: d.glucemia || '', spo2: d.spo2 || '',
+        controlado: d.controlado || '', di1: d.di1 || '', di2: d.di2 || '',
+        hta: d.hta || '', hemo: d.hemo || '', hepb: d.hepb || '', tbc: d.tbc || '',
+        cancer: d.cancer || '', osteo: d.osteo || '', artritis: d.artritis || '',
+        reuma: d.reuma || '', vih: d.vih || '', otros_enf: d.otros_enf || '',
+        yodo: d.yodo || '', anestesia: d.anestesia || '', otros_alerg: d.otros_alerg || '',
+        anticoag: d.anticoag || '', cual: d.cual || '',
+        onicomicosis: d.onicomicosis || '', onicogrifosis: d.onicogrifosis || '',
+        onicocriptosis: d.onicocriptosis || '', pieatleta: d.pieatleta || '',
+        hiperquer: d.hiperquer || '', otros_pie: d.otros_pie || '', firma: d.firma || ''
+      };
+
+      try {
+        if (editId) {
+          await setDoc(doc(db, 'fichas', editId), datos, { merge: true });
+          mensaje.textContent = 'Ficha actualizada correctamente.';
+        } else {
+          await addDoc(collection(db, 'fichas'), Object.assign({ creado: serverTimestamp() }, datos));
+          mensaje.textContent = 'Ficha guardada correctamente.';
+        }
+        mensaje.className = 'mensaje ok';
+        mensaje.style.display = 'block';
+        document.getElementById('acciones').style.display = 'flex';
+        btn.disabled = false;
+      } catch (err) {
+        mensaje.textContent = 'Error al guardar: ' + err.message;
+        mensaje.className = 'mensaje err';
+        mensaje.style.display = 'block';
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

@@ -90,8 +90,8 @@ async function enviarRecordatorios() {
     console.log('Error enviar recordatorios:', e.message);
   }
 }
-setInterval(enviarRecordatorios, 3600000);
 setTimeout(enviarRecordatorios, 5000);
+setInterval(enviarRecordatorios, 86400000); // cada 24h
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -422,85 +422,6 @@ app.delete(['/admin/tratamientos/:id', '/api/admin/tratamientos/:id'], async (re
   }
 });
 
-// ========== GRUPOS ==========
-app.get(['/admin/grupos', '/api/admin/grupos'], async (req, res) => {
-  if (requireDb(req, res)) return;
-  try {
-    const snap = await db.collection('grupos').orderBy('horario', 'asc').get();
-    const grupos = [];
-    snap.forEach(doc => grupos.push({ id: doc.id, ...doc.data() }));
-    res.json({ success: true, grupos });
-  } catch (e) {
-    res.status(500).json({ success: false, error: e.message });
-  }
-});
-
-app.post(['/admin/grupos', '/api/admin/grupos'], async (req, res) => {
-  if (requireDb(req, res)) return;
-  try {
-    const { nombre, horario, alumnos } = req.body;
-    if (!nombre || !horario) return res.status(400).json({ success: false, error: 'Falta nombre u horario' });
-    const doc = await db.collection('grupos').add({ nombre: nombre.trim(), horario, alumnos: alumnos || [] });
-    res.json({ success: true, id: doc.id });
-  } catch (e) {
-    res.status(500).json({ success: false, error: e.message });
-  }
-});
-
-app.put(['/admin/grupos/:id', '/api/admin/grupos/:id'], async (req, res) => {
-  if (requireDb(req, res)) return;
-  try {
-    const { nombre, horario, alumnos } = req.body;
-    const updates = {};
-    if (nombre !== undefined) updates.nombre = nombre.trim();
-    if (horario !== undefined) updates.horario = horario;
-    if (alumnos !== undefined) updates.alumnos = alumnos;
-    await db.collection('grupos').doc(req.params.id).update(updates);
-    res.json({ success: true });
-  } catch (e) {
-    res.status(500).json({ success: false, error: e.message });
-  }
-});
-
-app.delete(['/admin/grupos/:id', '/api/admin/grupos/:id'], async (req, res) => {
-  if (requireDb(req, res)) return;
-  try {
-    await db.collection('grupos').doc(req.params.id).delete();
-    res.json({ success: true });
-  } catch (e) {
-    res.status(500).json({ success: false, error: e.message });
-  }
-});
-
-// Cargar grupo: crea una cita por cada alumno hoy a las hora del grupo
-app.post(['/admin/grupos/:id/cargar', '/api/admin/grupos/:id/cargar'], async (req, res) => {
-  if (requireDb(req, res)) return;
-  try {
-    const doc = await db.collection('grupos').doc(req.params.id).get();
-    if (!doc.exists) return res.status(404).json({ success: false, error: 'Grupo no encontrado' });
-    const grupo = doc.data();
-    const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Montevideo' });
-    const creadas = [];
-    for (const alumno of (grupo.alumnos || [])) {
-      if (!alumno.trim()) continue;
-      const cita = {
-        paciente: alumno.trim(),
-        telefono: '',
-        email: '',
-        fecha: hoy,
-        hora: grupo.horario,
-        createdAt: new Date().toISOString(),
-        estado: 'pendiente',
-        notas: `Grupo: ${grupo.nombre}`,
-      };
-      const r = await db.collection('citas').add(cita);
-      creadas.push({ id: r.id, alumno: alumno.trim() });
-    }
-    res.json({ success: true, creadas: creadas.length, alumnos: creadas });
-  } catch (e) {
-    res.status(500).json({ success: false, error: e.message });
-  }
-});
 
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => console.log(`Servidor corriendo en el puerto ${PORT}`));

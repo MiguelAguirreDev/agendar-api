@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Historial Clínico — Clínica del Pie</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', sans-serif; background: #f1f5f9; color: #1a2a3a; min-height: 100vh; transition: background 0.3s, color 0.3s; }
+  body.dark { background: #0f172a; color: #e2e8f0; }
+  #authLoading { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; }
+  .spinner { width: 36px; height: 36px; border: 4px solid #e2e8f0; border-top-color: #1a9e8e; border-radius: 50%; animation: giro 0.8s linear infinite; margin-bottom: 12px; }
+  @keyframes giro { to { transform: rotate(360deg); } }
+  nav { background: #0b5345; color: #fff; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 12px rgba(0,0,0,0.1); }
+  nav h2 a { color: #fff; text-decoration: none; }
+  nav .nav-actions { display: flex; align-items: center; gap: 16px; }
+  nav .btn-logout, nav a.nav-link { background: rgba(255,255,255,0.15); color: #fff; border: none; padding: 8px 16px; border-radius: 8px; font-size: 0.8rem; font-family: inherit; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-block; }
+  nav .btn-logout:hover, nav a.nav-link:hover { background: rgba(255,255,255,0.25); }
+  .container { max-width: 1000px; margin: 24px auto; padding: 0 24px; }
+  .header-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+  .header-bar h1 { font-size: 1.3rem; font-weight: 800; color: #0b5345; }
+  body.dark .header-bar h1 { color: #7fdbd0; }
+  .search-box { padding: 10px 14px; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 0.85rem; font-family: inherit; outline: none; width: 260px; max-width: 100%; background: #fff; color: #1a2a3a; }
+  .search-box:focus { border-color: #1a9e8e; }
+  body.dark .search-box { background: #334155; border-color: #475569; color: #e2e8f0; }
+  .conteo { color: #64748b; font-size: 0.85rem; margin-bottom: 12px; }
+  .table-wrapper { background: #fff; border-radius: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); overflow-x: auto; }
+  body.dark .table-wrapper { background: #1e293b; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th { background: #0b5345; color: #fff; text-align: left; padding: 12px 14px; font-weight: 600; white-space: nowrap; }
+  td { padding: 10px 14px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+  body.dark td { border-color: #334155; }
+  tr:hover td { background: #f8fafc; }
+  body.dark tr:hover td { background: #334155; }
+  .empty { text-align: center; color: #94a3b8; padding: 40px 0; }
+  .btn-ver { background: #1a9e8e; color: #fff; border: 0; padding: 7px 16px; border-radius: 8px; cursor: pointer; font-family: inherit; font-weight: 600; font-size: 0.8rem; transition: background 0.2s; }
+  .btn-ver:hover { background: #0e6b58; }
+  .btn-danger { background: #dc2626; }
+  .btn-danger:hover { background: #b91c1c; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; }
+  .modal-overlay.show { display: flex; }
+  .modal-box { background: #fff; border-radius: 24px; padding: 28px 24px 24px; width: 90%; max-width: 420px; animation: fadeUp 0.3s ease-out; box-shadow: 0 20px 60px rgba(0,0,0,0.2); max-height: 90vh; overflow-y: auto; }
+  body.dark .modal-box { background: #1e293b; }
+  .modal-box h3 { font-size: 1.1rem; font-weight: 700; color: #1a2a3a; margin-bottom: 16px; text-align: center; }
+  body.dark .modal-box h3 { color: #e2e8f0; }
+  .modal-box .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+  .modal-box .modal-actions button { flex: 1; padding: 12px; border-radius: 12px; font-size: 0.85rem; font-weight: 600; font-family: inherit; cursor: pointer; border: none; transition: all 0.2s; }
+  .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; padding: 20px; z-index: 50; }
+  .modal.show { display: flex; }
+  .modal-caja { background: #fff; border-radius: 14px; max-width: 640px; width: 100%; max-height: 90vh; overflow-y: auto; padding: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+  body.dark .modal-caja { background: #1e293b; }
+  .modal-caja h2 { color: #0b5345; margin: 0 0 4px; font-size: 1.3rem; }
+  body.dark .modal-caja h2 { color: #7fdbd0; }
+  .modal-caja .subtitulo { color: #64748b; font-size: 0.85rem; margin-bottom: 16px; }
+  .seccion { border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; }
+  body.dark .seccion { border-color: #334155; }
+  .seccion h4 { margin: 0 0 8px; color: #0b5345; font-size: 0.9rem; }
+  body.dark .seccion h4 { color: #7fdbd0; }
+  .detalle { display: flex; justify-content: space-between; border-bottom: 1px dashed #eef2f7; padding: 5px 0; font-size: 0.85rem; }
+  body.dark .detalle { border-color: #334155; }
+  .detalle:last-child { border-bottom: 0; }
+  .detalle b { color: #475569; font-weight: 600; }
+  body.dark .detalle b { color: #94a3b8; }
+  .detalle span { color: #0f172a; text-align: right; max-width: 60%; }
+  body.dark .detalle span { color: #e2e8f0; }
+  .cerrar { margin-top: 16px; width: 100%; padding: 10px; background: #1a9e8e; color: #fff; border: 0; border-radius: 8px; font-weight: 700; cursor: pointer; font-family: inherit; }
+  .cerrar:hover { background: #0e6b58; }
+</style>
+<script>
+  if (localStorage.getItem('adminTheme') !== 'light') { document.body.classList.add('dark'); }
+</script>
+</head>
+<body>
+  <div id="authLoading">
+    <div class="spinner"></div>
+    <span style="color:#64748b;font-size:0.9rem">Verificando acceso...</span>
+  </div>
+
+  <nav id="nav" style="display:none">
+    <h2><a href="admin.html">🦶 Historial Clínico</a></h2>
+    <div class="nav-actions">
+      <a href="ficha.html" class="nav-link">📋 Nueva ficha</a>
+      <button class="btn-logout" id="btnTheme">🌙</button>
+      <button class="btn-logout" id="btnLogout">Salir</button>
+    </div>
+  </nav>
+
+  <div class="container" id="contenido" style="display:none">
+    <div class="header-bar">
+      <h1>👥 Pacientes</h1>
+      <input type="text" class="search-box" id="searchBox" placeholder="Buscar por nombre, teléfono...">
+    </div>
+    <p class="conteo" id="conteo"></p>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Paciente</th><th>Teléfono</th><th>Fecha</th><th></th></tr></thead>
+        <tbody id="cuerpo"></tbody>
+      </table>
+    </div>
+    <div class="empty" id="empty" style="display:none">Aún no hay fichas clínicas guardadas.</div>
+  </div>
+
+  <div class="modal-overlay" id="modalConfirm" style="z-index:2000">
+    <div class="modal-box">
+      <h3 id="modalTitulo">Confirmar</h3>
+      <p id="modalTexto" style="text-align:center;color:#64748b;font-size:0.85rem;"></p>
+      <div class="modal-actions"><button id="modalNo" style="background:#f1f5f9;color:#64748b;">Cancelar</button><button id="modalSi" style="background:#dc2626;color:#fff;">Confirmar</button></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal">
+    <div class="modal-caja" id="modalCaja"></div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+    import { getAuth, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+    import { getFirestore, collection, getDocs, query, orderBy, deleteDoc, doc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+    const firebaseConfig = { apiKey: 'AIzaSyCT25mmO3VtQYGr8Cwzj2t-NIF3gsWkTOg', authDomain: 'clinicadelpieisabelaguiar.firebaseapp.com', projectId: 'clinicadelpieisabelaguiar', appId: '1:685381652711:web:859a412d8779b53d49d242' };
+    const ALLOWED = ['arteyestilomodas@gmail.com', 'mailmaguirre@gmail.com'];
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    let fichas = [];
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user || !ALLOWED.includes(user.email)) { window.location.href = 'admin.html'; return; }
+      document.getElementById('authLoading').style.display = 'none';
+      document.getElementById('nav').style.display = 'flex';
+      document.getElementById('contenido').style.display = 'block';
+      await cargar();
+    });
+
+    document.getElementById('btnLogout').addEventListener('click', () => signOut(auth).then(() => window.location.href = 'login.html'));
+    document.getElementById('btnTheme').addEventListener('click', () => {
+      document.body.classList.toggle('dark');
+      document.getElementById('btnTheme').textContent = document.body.classList.contains('dark') ? '☀️' : '🌙';
+      localStorage.setItem('adminTheme', document.body.classList.contains('dark') ? 'dark' : 'light');
+    });
+
+    function fmtFecha(d) {
+      if (!d || !d.toDate) return d || '—';
+      return d.toDate().toLocaleDateString('es-ES');
+    }
+
+    async function cargar() {
+      const q = query(collection(db, 'fichas'), orderBy('creado', 'desc'));
+      const snap = await getDocs(q);
+      fichas = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      render();
+    }
+
+    function render() {
+      const busqueda = (document.getElementById('searchBox').value || '').toLowerCase();
+      const filtradas = fichas.filter(f =>
+        (f.nombres || '').toLowerCase().includes(busqueda) ||
+        (f.tel || '').toLowerCase().includes(busqueda));
+      document.getElementById('conteo').textContent = filtradas.length + ' paciente(s)';
+      document.getElementById('empty').style.display = filtradas.length ? 'none' : 'block';
+      const cuerpo = document.getElementById('cuerpo');
+      cuerpo.innerHTML = '';
+      filtradas.forEach(f => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td><b>${f.nombres || '—'}</b></td><td>${f.tel || '—'}</td><td>${fmtFecha(f.creado)}</td>
+          <td>
+            <a class="btn-ver" href="ficha.html?id=${f.id}" style="text-decoration:none">✏️ Editar</a>
+            <button class="btn-ver btn-danger" data-id="${f.id}">🗑 Eliminar</button>
+            <button class="btn-ver" data-ver="${f.id}">Ver historia</button>
+          </td>`;
+        tr.querySelector('button[data-ver]').addEventListener('click', () => verHistoria(f));
+        tr.querySelector('button[data-id]').addEventListener('click', (e) => eliminar(e.target.getAttribute('data-id')));
+        cuerpo.appendChild(tr);
+      });
+    }
+
+    document.getElementById('searchBox').addEventListener('input', render);
+
+    const modalConfirm = document.getElementById('modalConfirm');
+    const modalTitulo = document.getElementById('modalTitulo');
+    const modalTexto = document.getElementById('modalTexto');
+    const modalNo = document.getElementById('modalNo');
+    const modalSi = document.getElementById('modalSi');
+    let pendingConfirmCb = null;
+
+    function confirmar(titulo, texto, cb) {
+      modalTitulo.textContent = titulo;
+      modalTexto.textContent = texto;
+      pendingConfirmCb = cb;
+      modalConfirm.classList.add('show');
+    }
+
+    modalNo.addEventListener('click', () => { modalConfirm.classList.remove('show'); pendingConfirmCb = null; });
+    modalSi.addEventListener('click', () => { modalConfirm.classList.remove('show'); if (pendingConfirmCb) pendingConfirmCb(); pendingConfirmCb = null; });
+    modalConfirm.addEventListener('click', (e) => { if (e.target.id === 'modalConfirm') { modalConfirm.classList.remove('show'); pendingConfirmCb = null; } });
+
+    function eliminar(id) {
+      confirmar('Eliminar ficha clínica', '¿Seguro que deseas eliminar esta ficha? Esta acción no se puede deshacer.', async () => {
+        try {
+          await deleteDoc(doc(db, 'fichas', id));
+          fichas = fichas.filter(f => f.id !== id);
+          render();
+        } catch (err) {
+          alert('Error al eliminar: ' + err.message);
+        }
+      });
+    }
+
+    function item(etiqueta, valor) {
+      if (valor === '' || valor === undefined || valor === null) return '';
+      return `<div class="detalle"><b>${etiqueta}</b><span>${valor}</span></div>`;
+    }
+
+    function verHistoria(f) {
+      const si = (v) => v === 'Si' ? 'Sí' : (v === 'No' ? 'No' : '—');
+      document.getElementById('modalCaja').innerHTML = `
+        <h2>${f.nombres || 'Sin nombre'}</h2>
+        <div class="subtitulo">Ficha N° ${f.nfic || '—'} · ${f.edad || '—'} años · Género ${f.genero || '—'} · Registrada el ${fmtFecha(f.creado)}</div>
+
+        <div class="seccion"><h4>Contacto</h4>
+          ${item('Teléfono', f.tel)}${item('Tel. referencia', f.telref)}${item('Profesión', f.profesion)}</div>
+
+        <div class="seccion"><h4>Signos Vitales</h4>
+          ${item('P.A', f.pa)}${item('TEMP', f.temp)}${item('P', f.p)}${item('Glucemia capilar', f.glucemia)}${item('SPO2', f.spo2)}</div>
+
+        <div class="seccion"><h4>Historia Clínica del Paciente</h4>
+          ${item('Controlado(a)', si(f.controlado))}
+          ${item('Diabetes Tipo I', si(f.di1))}${item('Diabetes Tipo II', si(f.di2))}
+          ${item('Hipertensión', si(f.hta))}${item('Hemofilia', si(f.hemo))}${item('Hepatitis B', si(f.hepb))}
+          ${item('TBC', si(f.tbc))}${item('Cáncer', si(f.cancer))}${item('Osteoporosis', si(f.osteo))}
+          ${item('Artritis', si(f.artritis))}${item('Reumatismo', si(f.reuma))}${item('VIH', si(f.vih))}
+          ${item('Otros', f.otros_enf)}</div>
+
+        <div class="seccion"><h4>Alergias</h4>
+          ${item('Yodo', si(f.yodo))}${item('Anestesia', si(f.anestesia))}${item('Otros', f.otros_alerg)}</div>
+
+        <div class="seccion"><h4>Medicación actual</h4>
+          ${item('Anticoagulante', si(f.anticoag))}${item('¿Cuál?', f.cual)}</div>
+
+        <div class="seccion"><h4>Historia Clínica del Pie</h4>
+          ${item('Onicomicosis', si(f.onicomicosis))}${item('Onicogrifosis', si(f.onicogrifosis))}
+          ${item('Onicocriptosis', si(f.onicocriptosis))}${item('Pie de atleta', si(f.pieatleta))}
+          ${item('Hiperqueratosis plantar', si(f.hiperquer))}${item('Otros', f.otros_pie)}</div>
+
+        <div class="seccion"><h4>Cierre</h4>${item('Firma', f.firma)}</div>
+
+        <button class="cerrar" onclick="document.getElementById('modal').classList.remove('show')">Cerrar</button>`;
+      document.getElementById('modal').classList.add('show');
+    }
+
+    document.getElementById('modal').addEventListener('click', (e) => {
+      if (e.target.id === 'modal') e.target.classList.remove('show');
+    });
+  </script>
+</body>
+</html>
