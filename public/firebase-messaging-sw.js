@@ -5,6 +5,7 @@ firebase.initializeApp({
   apiKey: 'AIzaSyCT25mmO3VtQYGr8Cwzj2t-NIF3gsWkTOg',
   authDomain: 'clinicadelpieisabelaguiar.firebaseapp.com',
   projectId: 'clinicadelpieisabelaguiar',
+  messagingSenderId: '685381652711',
   appId: '1:685381652711:web:859a412d8779b53d49d242'
 });
 

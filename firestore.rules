@@ -1,8 +1,31 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Fichas médicas - solo admins autenticados
     match /fichas/{document} {
       allow read, create, update, delete: if request.auth != null;
+    }
+
+    // Citas - admins autenticados pueden leer/escribir todo
+    // Público solo puede crear (agendar)
+    match /citas/{document} {
+      allow read, update, delete: if request.auth != null;
+      allow create: if true; // Público agenda
+    }
+
+    // Bloqueos de agenda - solo admins
+    match /bloqueos/{document} {
+      allow read, create, update, delete: if request.auth != null;
+    }
+
+    // Tratamientos - solo admins
+    match /tratamientos/{document} {
+      allow read, create, update, delete: if request.auth != null;
+    }
+
+    // Tokens FCM para push notifications - admins autenticados
+    match /adminTokens/{document} {
+      allow read, write: if request.auth != null;
     }
   }
 }
