@@ -193,9 +193,53 @@ app.post(['/agendar', '/api/agendar', '/db/agendar', '/api/db/agendar'], async (
         }).filter(Boolean);
         
         if (tokens.length > 0) {
-          console.log(`[PUSH] Enviando multicast a ${tokens.length} token(s)...`);
+          // --- Paso 1: Eliminar duplicados por usuario (mismo email) ---
+          // Agrupamos por user y quedamos con el primer token de cada usuario
+          const uniqueTokens = [];
+          const seenUsers = new Set();
+          for (const doc of tokensSnap.docs) {
+            const data = doc.data();
+            const user = data.user || 'anónimo';
+            if (!seenUsers.has(user)) {
+              seenUsers.add(user);
+              uniqueTokens.push(data.token);
+            }
+          }
+          console.log('[PUSH] Tokens únicos por usuario:', uniqueTokens.length, 'de', tokens.length);
+          
+          // También limpiamos la colección de duplicados en Firestore
+          await db.collection('adminTokens').get().then(snap => {
+            const grouped = {};
+            snap.docs.forEach(doc => {
+              const user = snap.doc(data).data().user || 'anónimo';
+              if (!grouped[user]) grouped[user] = [];
+              grouped[user].push({ id: doc.id, token: doc.data().token });
+            });
+            for (const user of Object.keys(grouped)) {
+              if (grouped[user].length > 1) {
+                // Mantener el primero, borrar los demás
+                const toDelete = grouped[user].slice(1).map(d => d.id);
+                console.log('[PUSH] Eliminando duplicados para usuario:', user, toDelete.length);
+                await db.collection('adminTokens').deleteMany(...toDelete);
+              }
+            }
+          }).catch(err => console.log('[PUSH] ⚠️ No se pudieron limpiar duplicados:', err));
+          
+          // Re-colectar tokens únicos después de limpieza
+          const finalTokens = [];
+          const userSet = new Set();
+          for (const doc of tokensSnap.docs) {
+            const data = doc.data();
+            const user = data.user || 'anónimo';
+            if (!userSet.has(user)) {
+              userSet.add(user);
+              finalTokens.push(data.token);
+            }
+          }
+          console.log('[PUSH] Enviando multicast a', finalTokens.length, 'token(s) únicos...');
+          
           const response = await messaging.sendEachForMulticast({
-            tokens,
+            tokens: finalTokens,
             notification: {
               title: '🔔 Nueva cita agendada',
               body: `${paciente} - ${fechaHora}`
@@ -206,7 +250,7 @@ app.post(['/agendar', '/api/agendar', '/db/agendar', '/api/db/agendar'], async (
             successCount: response.successCount,
             failureCount: response.failureCount,
             responses: response.responses.map((r, i) => ({
-              token: tokens[i].substring(0, 10) + '...',
+              token: finalTokens[i]?.substring(0, 10) + '...',
               success: r.success,
               error: r.error?.message,
               errorCode: r.error?.code
@@ -216,7 +260,7 @@ app.post(['/agendar', '/api/agendar', '/db/agendar', '/api/db/agendar'], async (
             const invalidTokens = [];
             response.responses.forEach((r, i) => {
               if (!r.success && (r.error?.code === 'messaging/invalid-registration-token' || r.error?.code === 'messaging/registration-token-not-registered')) {
-                invalidTokens.push(tokens[i]);
+                invalidTokens.push(finalTokens[i]);
               }
             });
             if (invalidTokens.length > 0) {
