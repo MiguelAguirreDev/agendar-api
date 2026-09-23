@@ -11,6 +11,10 @@
     ],
     "rewrites": [
       {
+        "source": "/firebase-messaging-sw.js",
+        "destination": "/firebase-messaging-sw.js"
+      },
+      {
         "source": "/googlef4e3a8d17d009c29.html",
         "destination": "/googlef4e3a8d17d009c29.html"
       },
