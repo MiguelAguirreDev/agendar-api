@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Panel Admin (Móvil) - Clínica del Pie</title>
   <link rel="icon" type="image/png" href="imagenes/logo.png">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="imagenes/logo.png">
+  <meta name="theme-color" content="#0b5345">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
@@ -610,7 +613,7 @@
       modalConfirm.classList.add('show');
     }
 
-    onAuthStateChanged(auth, (user) => {
+    onAuthStateChanged(auth, async (user) => {
       if (!user || !ALLOWED.includes(user.email)) { window.location.href = 'login.html'; return; }
       currentUser = user;
       userEmail.textContent = user.email;
@@ -619,7 +622,42 @@
       document.querySelector('.container').classList.remove('auth-hidden');
       cargarCitas();
       cargarFichas();
+      inicializarPushNotifications();
     });
+
+    async function inicializarPushNotifications() {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+      try {
+        const reg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+        const { getMessaging, getToken, onMessage } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js');
+        const messaging = getMessaging(app);
+        
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+          const token = await getToken(messaging, { 
+            vapidKey: 'BMTX04wfczg_w5qFABAdbTRjJzOZcWYVlFvfw_9cqNo3lOSdyVz4I7P9aBvjepqjFe0fmKJ1qyEGHzQK-f5GDfA',
+            serviceWorkerRegistration: reg
+          });
+          if (token) {
+            await db.collection('adminTokens').doc(token).set({
+              token,
+              user: currentUser.email,
+              userAgent: navigator.userAgent,
+              createdAt: new Date()
+            });
+            console.log('Token FCM admin guardado:', token);
+          }
+        }
+
+        onMessage(messaging, (payload) => {
+          console.log('Push recibida en foreground:', payload);
+          showToast(`🔔 ${payload.notification?.title}: ${payload.notification?.body}`, 'info');
+          if (typeof cargarCitas === 'function') cargarCitas();
+        });
+      } catch (e) {
+        console.log('Error inicializando push:', e);
+      }
+    }
 
     btnLogout.addEventListener('click', () => signOut(auth).then(() => window.location.href = 'login.html'));
     document.getElementById('btnTheme').addEventListener('click', () => {

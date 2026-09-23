@@ -3,6 +3,7 @@ const cors = require('cors');
 const { Resend } = require('resend');
 const { initializeApp, cert } = require('firebase-admin');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
+const { getMessaging } = require('firebase-admin/messaging');
 
 let db = null;
 try {
@@ -168,6 +169,29 @@ app.post(['/agendar', '/api/agendar', '/db/agendar', '/api/db/agendar'], async (
         subject: `Nueva cita agendada - ${paciente}`,
         html: `<div style="font-family:sans-serif;max-width:600px"><h2 style="color:#0b5345">Nueva cita agendada</h2><p><strong>Paciente:</strong> ${paciente}</p><p><strong>Teléfono:</strong> ${telefono}</p><p><strong>Email:</strong> ${email || '-'}</p><p><strong>Fecha y hora:</strong> ${fechaHora}</p><p><a href="https://clinicadelpieisabelaguiar.web.app/admin.html" style="color:#1a9e8e">Ver panel admin</a></p></div>`,
       }).catch(e => console.log('Error email isabel:', e.message));
+    }
+
+    // ===== PUSH NOTIFICATION A ADMINS =====
+    if (db) {
+      try {
+        const messaging = getMessaging();
+        const tokensSnap = await db.collection('adminTokens').get();
+        const tokens = tokensSnap.docs.map(doc => doc.data().token).filter(Boolean);
+        
+        if (tokens.length > 0) {
+          await messaging.sendEachForMulticast({
+            tokens,
+            notification: {
+              title: '🔔 Nueva cita agendada',
+              body: `${paciente} - ${fechaHora}`
+            },
+            data: { citaId: docRef.id, tipo: 'nueva_cita', fecha, hora }
+          });
+          console.log(`Push FCM enviada a ${tokens.length} admin(s)`);
+        }
+      } catch (e) {
+        console.log('Error push FCM admin:', e.message);
+      }
     }
 
     res.json({ success: true, id: docRef.id });
