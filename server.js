@@ -8,21 +8,28 @@ const { getMessaging } = require('firebase-admin/messaging');
 let db = null;
 try {
   const sa = process.env.FIREBASE_SERVICE_ACCOUNT;
+  console.log('[INIT] FIREBASE_SERVICE_ACCOUNT:', sa ? `presente (${sa.length} chars)` : 'NO CONFIGURADO');
   if (sa) {
     const cred = JSON.parse(sa);
+    console.log('[INIT] Service account project_id:', cred.project_id);
     initializeApp({ credential: cert(cred) });
     db = getFirestore();
-    console.log('Firestore iniciado');
+    console.log('[INIT] ✅ Firestore iniciado correctamente');
   } else {
-    console.log('FIREBASE_SERVICE_ACCOUNT no configurado, Firestore no disponible');
+    console.log('[INIT] ❌ FIREBASE_SERVICE_ACCOUNT no configurado, Firestore no disponible');
   }
 } catch (e) {
-  console.log('Error iniciando Firestore:', e.message);
+  console.error('[INIT] ❌ Error iniciando Firestore:', e.message, e.stack);
 }
 
 const app = express();
-app.use(cors());
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
+
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`, req.body ? Object.keys(req.body) : '');
+  next();
+});
 
 const FERIADOS = [
   { mes: '01', dia: '01', nombre: 'Año Nuevo' },
@@ -172,14 +179,22 @@ app.post(['/agendar', '/api/agendar', '/db/agendar', '/api/db/agendar'], async (
     }
 
     // ===== PUSH NOTIFICATION A ADMINS =====
+    console.log('[PUSH] Iniciando envío de notificaciones push a admins...');
     if (db) {
       try {
         const messaging = getMessaging();
+        console.log('[PUSH] Firebase Messaging inicializado');
         const tokensSnap = await db.collection('adminTokens').get();
-        const tokens = tokensSnap.docs.map(doc => doc.data().token).filter(Boolean);
+        console.log(`[PUSH] Documentos en adminTokens: ${tokensSnap.size}`);
+        const tokens = tokensSnap.docs.map(doc => {
+          const data = doc.data();
+          console.log(`[PUSH] Token encontrado:`, { user: data.user, tokenPreview: data.token?.substring(0, 20) + '...' });
+          return data.token;
+        }).filter(Boolean);
         
         if (tokens.length > 0) {
-          await messaging.sendEachForMulticast({
+          console.log(`[PUSH] Enviando multicast a ${tokens.length} token(s)...`);
+          const response = await messaging.sendEachForMulticast({
             tokens,
             notification: {
               title: '🔔 Nueva cita agendada',
@@ -187,11 +202,39 @@ app.post(['/agendar', '/api/agendar', '/db/agendar', '/api/db/agendar'], async (
             },
             data: { citaId: docRef.id, tipo: 'nueva_cita', fecha, hora }
           });
-          console.log(`Push FCM enviada a ${tokens.length} admin(s)`);
+          console.log('[PUSH] Respuesta FCM:', {
+            successCount: response.successCount,
+            failureCount: response.failureCount,
+            responses: response.responses.map((r, i) => ({
+              token: tokens[i].substring(0, 10) + '...',
+              success: r.success,
+              error: r.error?.message,
+              errorCode: r.error?.code
+            }))
+          });
+          if (response.failureCount > 0) {
+            const invalidTokens = [];
+            response.responses.forEach((r, i) => {
+              if (!r.success && (r.error?.code === 'messaging/invalid-registration-token' || r.error?.code === 'messaging/registration-token-not-registered')) {
+                invalidTokens.push(tokens[i]);
+              }
+            });
+            if (invalidTokens.length > 0) {
+              console.log('[PUSH] Eliminando tokens inválidos/expirados:', invalidTokens.length);
+              for (const token of invalidTokens) {
+                await db.collection('adminTokens').doc(token).delete().catch(() => {});
+              }
+            }
+          }
+          console.log(`[PUSH] ✅ Push FCM enviada a ${response.successCount} admin(s), ${response.failureCount} fallaron`);
+        } else {
+          console.log('[PUSH] ⚠️ No hay tokens registrados en adminTokens');
         }
       } catch (e) {
-        console.log('Error push FCM admin:', e.message);
+        console.error('[PUSH] ❌ Error push FCM admin:', e.message, e.stack);
       }
+    } else {
+      console.log('[PUSH] ❌ db es null, no se puede enviar push');
     }
 
     res.json({ success: true, id: docRef.id });
@@ -446,6 +489,96 @@ app.delete(['/admin/tratamientos/:id', '/api/admin/tratamientos/:id'], async (re
   }
 });
 
+
+// ========== PUSH NOTIFICATIONS ENDPOINTS ==========
+
+// Registrar token FCM desde frontend (alternativa a guardar directo en Firestore)
+app.post(['/api/push/register-token', '/push/register-token'], async (req, res) => {
+  if (requireDb(req, res)) return;
+  try {
+    const { token, user, userAgent } = req.body;
+    if (!token) return res.status(400).json({ success: false, error: 'Falta token' });
+    await db.collection('adminTokens').doc(token).set({
+      token,
+      user: user || 'unknown',
+      userAgent: userAgent || '',
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp()
+    });
+    console.log('[PUSH/REGISTER] Token guardado:', { user, tokenPreview: token.substring(0, 20) + '...' });
+    res.json({ success: true });
+  } catch (e) {
+    console.error('[PUSH/REGISTER] Error:', e.message);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// Test push manual desde backend
+app.post(['/api/push/test', '/push/test'], async (req, res) => {
+  if (requireDb(req, res)) return;
+  try {
+    const { token, title, body } = req.body;
+    const messaging = getMessaging();
+    
+    let targetTokens = [];
+    if (token) {
+      targetTokens = [token];
+    } else {
+      const tokensSnap = await db.collection('adminTokens').get();
+      targetTokens = tokensSnap.docs.map(doc => doc.data().token).filter(Boolean);
+    }
+    
+    if (targetTokens.length === 0) {
+      return res.json({ success: false, error: 'No hay tokens registrados' });
+    }
+    
+    console.log('[PUSH/TEST] Enviando test a', targetTokens.length, 'token(s)');
+    const response = await messaging.sendEachForMulticast({
+      tokens: targetTokens,
+      notification: { title: title || 'Test Push', body: body || 'Prueba desde backend' },
+      data: { tipo: 'test', timestamp: Date.now().toString() }
+    });
+    
+    console.log('[PUSH/TEST] Resultado:', { successCount: response.successCount, failureCount: response.failureCount });
+    res.json({ success: true, sent: response.successCount, failed: response.failureCount });
+  } catch (e) {
+    console.error('[PUSH/TEST] Error:', e.message);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// Ver estado de tokens registrados
+app.get(['/api/push/tokens', '/push/tokens'], async (req, res) => {
+  if (requireDb(req, res)) return;
+  try {
+    const snap = await db.collection('adminTokens').get();
+    const tokens = snap.docs.map(doc => {
+      const data = doc.data();
+      return {
+        token: data.token.substring(0, 20) + '...',
+        user: data.user,
+        userAgent: data.userAgent,
+        createdAt: data.createdAt?.toMillis ? data.createdAt.toMillis() : data.createdAt,
+        updatedAt: data.updatedAt?.toMillis ? data.updatedAt.toMillis() : data.updatedAt
+      };
+    });
+    res.json({ success: true, count: tokens.length, tokens });
+  } catch (e) {
+    console.error('[PUSH/TOKENS] Error:', e.message);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// Health check con info de push
+app.get(['/api/push/status', '/push/status'], async (req, res) => {
+  const messaging = db ? getMessaging() : null;
+  res.json({
+    status: 'ok',
+    firestore: !!db,
+    messaging: !!messaging,
+    timestamp: new Date().toISOString()
+  });
+});
 
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => console.log(`Servidor corriendo en el puerto ${PORT}`));
