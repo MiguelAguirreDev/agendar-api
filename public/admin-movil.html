@@ -626,36 +626,64 @@
     });
 
     async function inicializarPushNotifications() {
-      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+      console.log('[PUSH] Iniciando inicialización de notificaciones push...');
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        console.log('[PUSH] ❌ Service Worker o PushManager no soportado');
+        return;
+      }
       try {
+        console.log('[PUSH] Registrando Service Worker...');
         const reg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+        console.log('[PUSH] ✅ Service Worker registrado:', reg.scope, 'state:', reg.active?.state);
+        
         const { getMessaging, getToken, onMessage } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js');
         const messaging = getMessaging(app);
+        console.log('[PUSH] Firebase Messaging inicializado');
         
+        console.log('[PUSH] Permiso actual:', Notification.permission);
         const permission = await Notification.requestPermission();
+        console.log('[PUSH] Permiso tras requestPermission:', permission);
+        
         if (permission === 'granted') {
+          console.log('[PUSH] Obteniendo token FCM con VAPID key...');
           const token = await getToken(messaging, { 
             vapidKey: 'BMTX04wfczg_w5qFABAdbTRjJzOZcWYVlFvfw_9cqNo3lOSdyVz4I7P9aBvjepqjFe0fmKJ1qyEGHzQK-f5GDfA',
             serviceWorkerRegistration: reg
           });
+          console.log('[PUSH] Token FCM obtenido:', token ? token.substring(0, 30) + '...' : 'NULL/UNDEFINED');
+          
           if (token) {
-            await db.collection('adminTokens').doc(token).set({
-              token,
-              user: currentUser.email,
-              userAgent: navigator.userAgent,
-              createdAt: new Date()
-            });
-            console.log('Token FCM admin guardado:', token);
+            console.log('[PUSH] Guardando token en Firestore (adminTokens)...');
+            try {
+              await db.collection('adminTokens').doc(token).set({
+                token,
+                user: currentUser.email,
+                userAgent: navigator.userAgent,
+                createdAt: new Date()
+              });
+              console.log('[PUSH] ✅ Token FCM admin guardado en Firestore:', token.substring(0, 30) + '...');
+              showToast('✅ Notificaciones activadas', 'success');
+            } catch (firestoreError) {
+              console.error('[PUSH] ❌ Error guardando en Firestore:', firestoreError);
+              showToast('❌ Error guardando token', 'error');
+            }
+          } else {
+            console.log('[PUSH] ⚠️ getToken devolvió null/undefined');
+            showToast('⚠️ No se pudo obtener token FCM', 'warning');
           }
+        } else {
+          console.log('[PUSH] ❌ Permiso denegado:', permission);
+          showToast('❌ Permiso de notificaciones denegado', 'error');
         }
 
         onMessage(messaging, (payload) => {
-          console.log('Push recibida en foreground:', payload);
+          console.log('[PUSH] Push recibida en foreground:', payload);
           showToast(`🔔 ${payload.notification?.title}: ${payload.notification?.body}`, 'info');
           if (typeof cargarCitas === 'function') cargarCitas();
         });
       } catch (e) {
-        console.log('Error inicializando push:', e);
+        console.error('[PUSH] ❌ Error inicializando push:', e);
+        showToast('❌ Error push: ' + e.message, 'error');
       }
     }
 
