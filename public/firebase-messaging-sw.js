@@ -12,12 +12,13 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
-  const notificationTitle = payload.notification?.title || 'Nueva notificación';
+  const data = payload.data || {};
+  const notificationTitle = data.title || 'Nueva notificación';
   const notificationOptions = {
-    body: payload.notification?.body || '',
+    body: data.body || '',
     icon: '/imagenes/logo.png',
     badge: '/imagenes/logo.png',
-    data: payload.data,
+    data: data,
     actions: [
       { action: 'ver', title: 'Ver en admin' }
     ]

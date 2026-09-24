@@ -241,11 +241,14 @@ app.post(['/agendar', '/api/agendar', '/db/agendar', '/api/db/agendar'], async (
           
           const response = await messaging.sendEachForMulticast({
             tokens: finalTokens,
-            notification: {
+            data: {
+              citaId: docRef.id,
+              tipo: 'nueva_cita',
+              fecha,
+              hora,
               title: '🔔 Nueva cita agendada',
               body: `${paciente} - ${fechaHora}`
-            },
-            data: { citaId: docRef.id, tipo: 'nueva_cita', fecha, hora }
+            }
           });
           console.log('[PUSH] Respuesta FCM:', {
             successCount: response.successCount,
