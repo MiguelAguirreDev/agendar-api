@@ -238,9 +238,11 @@
         <button class="btn-sm btn-outline" id="btnPacientes">👥 Pacientes</button>
         <button class="btn-sm btn-outline" id="btnStats">📊 Stats</button>
         <button class="btn-sm btn-outline" id="btnTratamientos">🏥 Tratamientos</button>
-        <button class="btn-sm btn-outline" id="btnAyuda">❓ Ayuda</button>
+<button class="btn-sm btn-outline" id="btnAyuda">❓ Ayuda</button>
+        <button class="btn-sm btn-outline" id="btnPushReactivar" title="Reactivar notificaciones push">🔔 Push</button>
 </div>
-    </div>
+</div>
+</div>
 
     <div id="statsView">
       <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">
@@ -688,6 +690,52 @@
       }
     }
 
+    async function reactivarPushNotifications() {
+      const btn = document.getElementById('btnPushReactivar');
+      const originalText = btn.textContent;
+      btn.textContent = '⏳...';
+      btn.disabled = true;
+      try {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+          showToast('❌ Navegador no soporta push', 'error');
+          return;
+        }
+        const reg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+        const { getMessaging, getToken } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js');
+        const messaging = getMessaging(app);
+        
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          showToast('❌ Permiso denegado. Habilitá en configuración del sitio.', 'error');
+          return;
+        }
+        
+        const token = await getToken(messaging, { 
+          vapidKey: 'BMTX04wfczg_w5qFABAdbTRjJzOZcWYVlFvfw_9cqNo3lOSdyVz4I7P9aBvjepqjFe0fmKJ1qyEGHzQK-f5GDfA',
+          serviceWorkerRegistration: reg
+        });
+        
+        if (token) {
+          const tokenRef = doc(db, 'adminTokens', token);
+          await setDoc(tokenRef, {
+            token,
+            user: currentUser.email,
+            userAgent: navigator.userAgent,
+            createdAt: serverTimestamp()
+          });
+          showToast('✅ Notificaciones reactivadas', 'success');
+        } else {
+          showToast('⚠️ No se pudo obtener token', 'warning');
+        }
+      } catch (e) {
+        console.error('[PUSH] Error reactivando:', e);
+        showToast('❌ Error: ' + e.message, 'error');
+      } finally {
+        btn.textContent = originalText;
+        btn.disabled = false;
+      }
+    }
+
     btnLogout.addEventListener('click', () => signOut(auth).then(() => window.location.href = 'login.html'));
     document.getElementById('btnTheme').addEventListener('click', () => {
       document.body.classList.toggle('dark');
@@ -695,6 +743,9 @@
       localStorage.setItem('adminTheme', document.body.classList.contains('dark') ? 'dark' : 'light');
     });
     if (localStorage.getItem('adminTheme') !== 'light') { document.body.classList.add('dark'); document.getElementById('btnTheme').textContent = '☀️'; }
+
+    document.getElementById('btnPushReactivar').addEventListener('click', reactivarPushNotifications);
+
     modalNo.addEventListener('click', () => { modalConfirm.classList.remove('show'); pendingConfirmCb = null; });
     modalSi.addEventListener('click', () => { modalConfirm.classList.remove('show'); if (pendingConfirmCb) pendingConfirmCb(); pendingConfirmCb = null; });
 
