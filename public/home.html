@@ -959,8 +959,29 @@
     </a>
   </section>
 
+  <!-- ========== BANNER INSTALAR APP ========== -->
+  <div id="install-banner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:1000;background:linear-gradient(135deg,var(--green-dark),var(--green-medium));color:#fff;padding:16px 20px;box-shadow:0 -4px 24px rgba(0,0,0,0.2);border-radius:20px 20px 0 0;font-family:'Inter',sans-serif;animation:slideUp 0.4s ease-out">
+    <div style="max-width:600px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:240px">
+        <div style="width:40px;height:40px;background:rgba(255,255,255,0.15);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </div>
+        <div>
+          <p style="font-weight:700;font-size:0.95rem;margin:0">Instalar la aplicación</p>
+          <p style="font-size:0.75rem;margin:2px 0 0;opacity:0.85">Accedé rápido desde tu pantalla de inicio</p>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <button id="install-btn" style="background:var(--turquoise);color:var(--green-dark);border:none;padding:10px 20px;border-radius:50px;font-weight:700;font-size:0.85rem;cursor:pointer;transition:all 0.2s ease;box-shadow:0 4px 16px rgba(26,158,142,0.4)" onmouseover="this.style.background='var(--cyan-light)';this.style.transform='translateY(-2px)'" onmouseout="this.style.background='var(--turquoise)';this.style.transform='translateY(0)'">Instalar</button>
+        <button id="dismiss-banner" style="background:transparent;border:none;color:#fff;padding:8px;border-radius:50%;cursor:pointer;opacity:0.7;transition:opacity 0.2s" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'" aria-label="Cerrar">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- ========== FOOTER ========== -->
-  <footer>
+  <footer style="margin-bottom:80px">
     <p>&copy; 2026 <strong>Clínica del Pie Isabel Aguiar</strong> — Pedicuría Técnica · Habilitación MSP · Montevideo, Uruguay</p>
     <p style="margin-top:14px;opacity:0.5;font-size:0.75rem"><a href="/admin.html" style="color:#fff;text-decoration:none">🔐 Acceso Admin</a></p>
   </footer>
@@ -974,7 +995,7 @@
   const firebaseConfig = { apiKey: 'AIzaSyCT25mmO3VtQYGr8Cwzj2t-NIF3gsWkTOg', authDomain: 'clinicadelpieisabelaguiar.firebaseapp.com', projectId: 'clinicadelpieisabelaguiar', messagingSenderId: '685381652711', appId: '1:685381652711:web:859a412d8779b53d49d242' };
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
-  const ALLOWED = ['arteyestilomodas@gmail.com', 'mailmaguirre@gmail.com'];
+  const ALLOWED = ['arteyestilomodas@gmail.com', 'mailmaguirre@gmail.com', 'ysabelcirta@gmail.com'];
 
   onAuthStateChanged(auth, (user) => {
     const btn = document.getElementById('adminNavBtn');
@@ -985,4 +1006,89 @@
     }
   });
 </script>
+
+  <!-- ========== INSTALL BANNER LOGIC ========== -->
+  <script>
+    (function() {
+      'use strict';
+      const banner = document.getElementById('install-banner');
+      const installBtn = document.getElementById('install-btn');
+      const dismissBtn = document.getElementById('dismiss-banner');
+      let deferredPrompt = null;
+      const DISMISSED_KEY = 'install-banner-dismissed';
+
+      // Verificar si ya se desestimó el banner
+      if (localStorage.getItem(DISMISSED_KEY) === 'true') {
+        return;
+      }
+
+      // Verificar si ya está instalado (modo standalone)
+      const isStandalone = window.matchMedia('(display-mode: standalone)').match;
+      const isIOSStandalone = window.navigator.standalone === true;
+      if (isStandalone || isIOSStandalone) {
+        return;
+      }
+
+      // Escuchar el evento beforeinstallprompt
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        // Mostrar el banner
+        banner.style.display = 'block';
+        document.body.style.paddingBottom = '120px';
+      });
+
+      // También mostrar en iOS si no está en standalone (solo Safari)
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      if (isIOS && !window.navigator.standalone) {
+        // En iOS mostrar el banner después de un tiempo si no hay beforeinstallprompt
+        setTimeout(() => {
+          if (!deferredPrompt && !localStorage.getItem(DISMISSED_KEY)) {
+            banner.style.display = 'block';
+            document.body.style.paddingBottom = '120px';
+          }
+        }, 3000);
+      }
+
+      // Botón instalar
+      installBtn.addEventListener('click', async () => {
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          const { outcome } = await deferredPrompt.userChoice;
+          if (outcome === 'accepted') {
+            banner.style.display = 'none';
+            document.body.style.paddingBottom = '';
+          }
+          deferredPrompt = null;
+        } else if (isIOS) {
+          // En iOS mostrar instrucciones
+          alert('Para instalar: toca el botón compartir (cuadrado con flecha) y seleccioná "Añadir a pantalla de inicio"');
+        }
+      });
+
+      // Botón cerrar
+      dismissBtn.addEventListener('click', () => {
+        banner.style.display = 'none';
+        document.body.style.paddingBottom = '';
+        localStorage.setItem(DISMISSED_KEY, 'true');
+      });
+
+      // También ocultar si se hace click fuera (opcional)
+      banner.addEventListener('click', (e) => {
+        if (e.target === banner) {
+          banner.style.display = 'none';
+          document.body.style.paddingBottom = '';
+          localStorage.setItem(DISMISSED_KEY, 'true');
+        }
+      });
+    })();
+  </script>
+
+  <!-- Animación CSS para el banner -->
+  <style>
+    @keyframes slideUp {
+      from { transform: translateY(100%); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+  </style>
 </html>
