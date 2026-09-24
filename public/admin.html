@@ -239,6 +239,7 @@
         <button class="btn-sm btn-outline" id="btnStats">📊 Stats</button>
         <button class="btn-sm btn-outline" id="btnTratamientos">🏥 Tratamientos</button>
         <button class="btn-sm btn-outline" id="btnAyuda">❓ Ayuda</button>
+        <button class="btn-sm btn-outline" id="btnPushReactivar" title="Reactivar notificaciones push">🔔 Push</button>
 </div>
     </div>
 
@@ -514,7 +515,7 @@
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
     import { getAuth, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
-    import { getFirestore, collection, getDocs, doc, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+    import { getFirestore, collection, getDocs, doc, setDoc, serverTimestamp, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
     const firebaseConfig = { apiKey: 'AIzaSyCT25mmO3VtQYGr8Cwzj2t-NIF3gsWkTOg', authDomain: 'clinicadelpieisabelaguiar.firebaseapp.com', projectId: 'clinicadelpieisabelaguiar', messagingSenderId: '685381652711', appId: '1:685381652711:web:859a412d8779b53d49d242' };
     const app = initializeApp(firebaseConfig);
@@ -636,7 +637,7 @@
         const reg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
         console.log('[PUSH] ✅ Service Worker registrado:', reg.scope, 'state:', reg.active?.state);
         
-        const { getMessaging, getToken, onMessage } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js');
+        const { getMessaging, getToken, onMessage, onTokenRefresh } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js');
         const messaging = getMessaging(app);
         console.log('[PUSH] Firebase Messaging inicializado');
         
@@ -645,33 +646,7 @@
         console.log('[PUSH] Permiso tras requestPermission:', permission);
         
         if (permission === 'granted') {
-          console.log('[PUSH] Obteniendo token FCM con VAPID key...');
-          const token = await getToken(messaging, { 
-            vapidKey: 'BMTX04wfczg_w5qFABAdbTRjJzOZcWYVlFvfw_9cqNo3lOSdyVz4I7P9aBvjepqjFe0fmKJ1qyEGHzQK-f5GDfA',
-            serviceWorkerRegistration: reg
-          });
-          console.log('[PUSH] Token FCM obtenido:', token ? token.substring(0, 30) + '...' : 'NULL/UNDEFINED');
-          
-          if (token) {
-            console.log('[PUSH] Guardando token en Firestore (adminTokens)...');
-            try {
-              const tokenRef = doc(db, 'adminTokens', token);
-              await setDoc(tokenRef, {
-                token,
-                user: currentUser.email,
-                userAgent: navigator.userAgent,
-                createdAt: serverTimestamp()
-              });
-              console.log('[PUSH] ✅ Token FCM admin guardado en Firestore:', token.substring(0, 30) + '...');
-              showToast('✅ Notificaciones activadas', 'success');
-            } catch (firestoreError) {
-              console.error('[PUSH] ❌ Error guardando en Firestore:', firestoreError);
-              showToast('❌ Error guardando token', 'error');
-            }
-          } else {
-            console.log('[PUSH] ⚠️ getToken devolvió null/undefined');
-            showToast('⚠️ No se pudo obtener token FCM', 'warning');
-          }
+          await registrarTokenFCM(messaging, reg);
         } else {
           console.log('[PUSH] ❌ Permiso denegado:', permission);
           showToast('❌ Permiso de notificaciones denegado', 'error');
@@ -682,9 +657,84 @@
           showToast(`🔔 ${payload.notification?.title}: ${payload.notification?.body}`, 'info');
           if (typeof cargarCitas === 'function') cargarCitas();
         });
+
+        onTokenRefresh(messaging, async (newToken) => {
+          console.log('[PUSH] Token refrescado automáticamente:', newToken.substring(0, 30) + '...');
+          await guardarTokenEnBackend(newToken);
+          await limpiarTokensAntiguosUsuario(currentUser.email, newToken);
+        });
       } catch (e) {
         console.error('[PUSH] ❌ Error inicializando push:', e);
         showToast('❌ Error push: ' + e.message, 'error');
+      }
+    }
+
+    async function registrarTokenFCM(messaging, reg) {
+      console.log('[PUSH] Obteniendo token FCM con VAPID key...');
+      const token = await getToken(messaging, { 
+        vapidKey: 'BMTX04wfczg_w5qFABAdbTRjJzOZcWYVlFvfw_9cqNo3lOSdyVz4I7P9aBvjepqjFe0fmKJ1qyEGHzQK-f5GDfA',
+        serviceWorkerRegistration: reg
+      });
+      console.log('[PUSH] Token FCM obtenido:', token ? token.substring(0, 30) + '...' : 'NULL/UNDEFINED');
+      
+      if (token) {
+        await guardarTokenEnBackend(token);
+        await limpiarTokensAntiguosUsuario(currentUser.email, token);
+        showToast('✅ Notificaciones activadas', 'success');
+      } else {
+        console.log('[PUSH] ⚠️ getToken devolvió null/undefined');
+        showToast('⚠️ No se pudo obtener token FCM', 'warning');
+      }
+    }
+
+    async function guardarTokenEnBackend(token) {
+      try {
+        console.log('[PUSH] Guardando token en backend...');
+        const res = await fetch(`${API}/push/register-token`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, user: currentUser.email, userAgent: navigator.userAgent })
+        });
+        const data = await res.json();
+        if (data.success) {
+          console.log('[PUSH] ✅ Token guardado en backend');
+        } else {
+          console.error('[PUSH] ❌ Error backend:', data.error);
+        }
+      } catch (e) {
+        console.error('[PUSH] ❌ Error llamando backend:', e);
+      }
+      try {
+        const tokenRef = doc(db, 'adminTokens', token);
+        await setDoc(tokenRef, {
+          token,
+          user: currentUser.email,
+          userAgent: navigator.userAgent,
+          createdAt: serverTimestamp()
+        });
+        console.log('[PUSH] ✅ Token guardado en Firestore directo');
+      } catch (e) {
+        console.error('[PUSH] ❌ Error Firestore directo:', e);
+      }
+    }
+
+    async function limpiarTokensAntiguosUsuario(userEmail, nuevoToken) {
+      try {
+        console.log('[PUSH] Limpiando tokens antiguos del usuario:', userEmail);
+        const snap = await getDocs(collection(db, 'adminTokens'));
+        const batch = [];
+        snap.forEach(doc => {
+          const data = doc.data();
+          if (data.user === userEmail && data.token !== nuevoToken) {
+            batch.push(deleteDoc(doc.ref));
+          }
+        });
+        if (batch.length > 0) {
+          await Promise.all(batch);
+          console.log('[PUSH] ✅ Eliminados', batch.length, 'tokens antiguos');
+        }
+      } catch (e) {
+        console.error('[PUSH] ❌ Error limpiando tokens:', e);
       }
     }
 
@@ -695,8 +745,27 @@
       localStorage.setItem('adminTheme', document.body.classList.contains('dark') ? 'dark' : 'light');
     });
     if (localStorage.getItem('adminTheme') !== 'light') { document.body.classList.add('dark'); document.getElementById('btnTheme').textContent = '☀️'; }
+    document.getElementById('btnPushReactivar').addEventListener('click', reactivarPushNotifications);
     modalNo.addEventListener('click', () => { modalConfirm.classList.remove('show'); pendingConfirmCb = null; });
     modalSi.addEventListener('click', () => { modalConfirm.classList.remove('show'); if (pendingConfirmCb) pendingConfirmCb(); pendingConfirmCb = null; });
+
+    async function reactivarPushNotifications() {
+      const btn = document.getElementById('btnPushReactivar');
+      const originalText = btn.textContent;
+      btn.textContent = '⏳...'; btn.disabled = true;
+      try {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) { showToast('❌ Navegador no soporta push', 'error'); return; }
+        const reg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+        const { getMessaging, getToken } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js');
+        const messaging = getMessaging(app);
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') { showToast('❌ Permiso denegado. Habilitá en configuración del sitio.', 'error'); return; }
+        const token = await getToken(messaging, { vapidKey: 'BMTX04wfczg_w5qFABAdbTRjJzOZcWYVlFvfw_9cqNo3lOSdyVz4I7P9aBvjepqjFe0fmKJ1qyEGHzQK-f5GDfA', serviceWorkerRegistration: reg });
+        if (token) { await guardarTokenEnBackend(token); await limpiarTokensAntiguosUsuario(currentUser.email, token); showToast('✅ Notificaciones reactivadas', 'success'); }
+        else showToast('⚠️ No se pudo obtener token', 'warning');
+      } catch (e) { console.error('[PUSH] Error reactivando:', e); showToast('❌ Error: ' + e.message, 'error'); }
+      finally { btn.textContent = originalText; btn.disabled = false; }
+    }
 
     async function cargarCitas() {
       loading.style.display = 'block'; tabla.style.display = 'none'; empty.style.display = 'none';

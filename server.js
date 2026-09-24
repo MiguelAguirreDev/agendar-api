@@ -207,36 +207,43 @@ app.post(['/agendar', '/api/agendar', '/db/agendar', '/api/db/agendar'], async (
           }
           console.log('[PUSH] Tokens únicos por usuario:', uniqueTokens.length, 'de', tokens.length);
           
-          // También limpiamos la colección de duplicados en Firestore (borrado individual)
-          const grouped = {};
-          tokensSnap.docs.forEach(doc => {
-            const data = doc.data();
-            const user = data.user || 'anónimo';
-            if (!grouped[user]) grouped[user] = [];
-            grouped[user].push({ id: doc.id, token: data.token });
-          });
-          for (const user of Object.keys(grouped)) {
-            if (grouped[user].length > 1) {
-              // Mantener el primero, borrar los demás
-              const toDelete = grouped[user].slice(1);
-              console.log('[PUSH] Eliminando duplicados para usuario:', user, toDelete.length);
-              for (const item of toDelete) {
-                await db.collection('adminTokens').doc(item.id).delete().catch(() => {});
+          // Limpiamos duplicados: por usuario, conservamos el token más reciente
+          try {
+            const grouped = {};
+            tokensSnap.docs.forEach(doc => {
+              const data = doc.data();
+              const user = data.user || 'anónimo';
+              if (!grouped[user]) grouped[user] = [];
+              grouped[user].push({ id: doc.id, token: data.token, createdAt: data.createdAt?.toMillis ? data.createdAt.toMillis() : (data.createdAt || 0), updatedAt: data.updatedAt?.toMillis ? data.updatedAt.toMillis() : (data.updatedAt || 0) });
+            });
+            for (const user of Object.keys(grouped)) {
+              if (grouped[user].length > 1) {
+                grouped[user].sort((a,b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
+                const toDelete = grouped[user].slice(1);
+                console.log('[PUSH] Eliminando duplicados para usuario:', user, toDelete.length);
+                for (const d of toDelete) {
+                  await db.collection('adminTokens').doc(d.id).delete().catch(()=>{});
+                }
+                // actualizar grouped[user] para que solo quede el más reciente
+                grouped[user] = [grouped[user][0]];
               }
             }
-          }
+          } catch (err) { console.log('[PUSH] ⚠️ No se pudieron limpiar duplicados:', err.message); }
           
-          // Re-colectar tokens únicos después de limpieza
-          const finalTokens = [];
-          const userSet = new Set();
-          for (const doc of tokensSnap.docs) {
+          // Re-colectar tokens únicos después de limpieza (uno por usuario, el más reciente)
+          const snapFresh = await db.collection('adminTokens').get();
+          const latestByUser = new Map();
+          snapFresh.docs.forEach(doc => {
             const data = doc.data();
             const user = data.user || 'anónimo';
-            if (!userSet.has(user)) {
-              userSet.add(user);
-              finalTokens.push(data.token);
+            const ts = data.updatedAt?.toMillis ? data.updatedAt.toMillis() : (data.updatedAt || data.createdAt?.toMillis ? data.createdAt.toMillis() : 0);
+            const existing = latestByUser.get(user);
+            const existingTs = existing?.ts || 0;
+            if (!existing || ts > existingTs) {
+              latestByUser.set(user, { token: data.token, ts });
             }
-          }
+          });
+          const finalTokens = Array.from(latestByUser.values()).map(v => v.token);
           console.log('[PUSH] Enviando multicast a', finalTokens.length, 'token(s) únicos...');
           
           const response = await messaging.sendEachForMulticast({
@@ -546,6 +553,7 @@ app.post(['/api/push/register-token', '/push/register-token'], async (req, res) 
   try {
     const { token, user, userAgent } = req.body;
     if (!token) return res.status(400).json({ success: false, error: 'Falta token' });
+    // Guardar nuevo token
     await db.collection('adminTokens').doc(token).set({
       token,
       user: user || 'unknown',
@@ -553,6 +561,20 @@ app.post(['/api/push/register-token', '/push/register-token'], async (req, res) 
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp()
     });
+    // Eliminar tokens obsoletos del mismo usuario (reinstalación -> token nuevo reemplaza al viejo)
+    if (user) {
+      try {
+        const snap = await db.collection('adminTokens').where('user', '==', user).get();
+        const toDelete = [];
+        snap.forEach(doc => {
+          if (doc.id !== token) toDelete.push(doc.id);
+        });
+        for (const id of toDelete) {
+          await db.collection('adminTokens').doc(id).delete().catch(()=>{});
+        }
+        if (toDelete.length) console.log(`[PUSH/REGISTER] Eliminados ${toDelete.length} tokens antiguos de ${user}`);
+      } catch (e) { console.log('[PUSH/REGISTER] No se pudieron limpiar tokens antiguos:', e.message); }
+    }
     console.log('[PUSH/REGISTER] Token guardado:', { user, tokenPreview: token.substring(0, 20) + '...' });
     res.json({ success: true });
   } catch (e) {
