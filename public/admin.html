@@ -428,6 +428,27 @@
     </div>
   </div>
 
+  <!-- Modal Batería / Restringida -->
+  <div class="modal-overlay" id="modalBateria">
+    <div class="modal-box wide" style="max-width:520px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <h3 style="margin:0">🔋 App restringida — activar notificaciones</h3>
+        <button id="bateriaCerrarX" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:#64748b;padding:0;line-height:1">✕</button>
+      </div>
+      <div style="font-size:0.85rem;line-height:1.6">
+        <p>Android marcó la PWA como <strong>Restringida</strong> y bloquea las notificaciones en segundo plano. Es normal en PWAs — <strong>no se puede quitar desde la web</strong>, hay que hacerlo una vez manualmente:</p>
+        <ol style="margin:10px 0 10px 18px">
+          <li><strong>Ajustes → Apps → Clínica del Pie</strong> (o `clinicadelpieisabelaguiar.web.app`)</li>
+          <li><strong>Batería → Sin restricciones</strong> / <strong>No optimizar</strong></li>
+          <li><strong>Notificaciones → Permitir</strong></li>
+          <li>Volvé a <strong>admin.html</strong> y tocá <strong>🔔 Push</strong></li>
+        </ol>
+        <p style="color:#64748b;font-size:0.8rem">En Chrome: ⋮ → Configuración → Configuración del sitio → Notificaciones → Permitir para este sitio.</p>
+      </div>
+      <div class="modal-actions"><button id="bateriaCerrar" style="flex:1;padding:12px;border-radius:12px;font-size:0.85rem;font-weight:600;font-family:inherit;cursor:pointer;border:none;background:#1a9e8e;color:#fff;">Entendido</button><button id="bateriaReintentar" style="flex:1;padding:12px;border-radius:12px;font-size:0.85rem;font-weight:600;font-family:inherit;cursor:pointer;border:none;background:#0b5345;color:#fff;">🔔 Reintentar Push</button></div>
+    </div>
+  </div>
+
   <!-- Modal Tratamientos realizados -->
   <div class="modal-overlay" id="modalNotas">
     <div class="modal-box wide">
@@ -650,6 +671,7 @@
         } else {
           console.log('[PUSH] ❌ Permiso denegado:', permission);
           showToast('❌ Permiso de notificaciones denegado', 'error');
+          mostrarModalBateria();
         }
 
         onMessage(messaging, (payload) => {
@@ -682,8 +704,9 @@
         await limpiarTokensAntiguosUsuario(currentUser.email, token);
         showToast('✅ Notificaciones activadas', 'success');
       } else {
-        console.log('[PUSH] ⚠️ getToken devolvió null/undefined');
-        showToast('⚠️ No se pudo obtener token FCM', 'warning');
+        console.log('[PUSH] ⚠️ getToken devolvió null/undefined — posible app restringida');
+        showToast('⚠️ No se pudo obtener token — app restringida', 'warning');
+        mostrarModalBateria();
       }
     }
 
@@ -738,6 +761,9 @@
       }
     }
 
+    function mostrarModalBateria() { document.getElementById('modalBateria').classList.add('show'); }
+    function cerrarModalBateria() { document.getElementById('modalBateria').classList.remove('show'); }
+
     btnLogout.addEventListener('click', () => signOut(auth).then(() => window.location.href = 'login.html'));
     document.getElementById('btnTheme').addEventListener('click', () => {
       document.body.classList.toggle('dark');
@@ -748,6 +774,10 @@
     document.getElementById('btnPushReactivar').addEventListener('click', reactivarPushNotifications);
     modalNo.addEventListener('click', () => { modalConfirm.classList.remove('show'); pendingConfirmCb = null; });
     modalSi.addEventListener('click', () => { modalConfirm.classList.remove('show'); if (pendingConfirmCb) pendingConfirmCb(); pendingConfirmCb = null; });
+    document.getElementById('bateriaCerrar').addEventListener('click', cerrarModalBateria);
+    document.getElementById('bateriaCerrarX').addEventListener('click', cerrarModalBateria);
+    document.getElementById('bateriaReintentar').addEventListener('click', () => { cerrarModalBateria(); reactivarPushNotifications(); });
+    document.getElementById('modalBateria').addEventListener('click', (e) => { if (e.target.id === 'modalBateria') cerrarModalBateria(); });
 
     async function reactivarPushNotifications() {
       const btn = document.getElementById('btnPushReactivar');
@@ -759,10 +789,10 @@
         const { getMessaging, getToken } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js');
         const messaging = getMessaging(app);
         const permission = await Notification.requestPermission();
-        if (permission !== 'granted') { showToast('❌ Permiso denegado. Habilitá en configuración del sitio.', 'error'); return; }
+        if (permission !== 'granted') { showToast('❌ Permiso denegado. Habilitá en configuración del sitio.', 'error'); mostrarModalBateria(); return; }
         const token = await getToken(messaging, { vapidKey: 'BMTX04wfczg_w5qFABAdbTRjJzOZcWYVlFvfw_9cqNo3lOSdyVz4I7P9aBvjepqjFe0fmKJ1qyEGHzQK-f5GDfA', serviceWorkerRegistration: reg });
         if (token) { await guardarTokenEnBackend(token); await limpiarTokensAntiguosUsuario(currentUser.email, token); showToast('✅ Notificaciones reactivadas', 'success'); }
-        else showToast('⚠️ No se pudo obtener token', 'warning');
+        else { showToast('⚠️ No se pudo obtener token — app restringida', 'warning'); mostrarModalBateria(); }
       } catch (e) { console.error('[PUSH] Error reactivando:', e); showToast('❌ Error: ' + e.message, 'error'); }
       finally { btn.textContent = originalText; btn.disabled = false; }
     }
