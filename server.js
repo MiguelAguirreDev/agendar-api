@@ -207,23 +207,24 @@ app.post(['/agendar', '/api/agendar', '/db/agendar', '/api/db/agendar'], async (
           }
           console.log('[PUSH] Tokens únicos por usuario:', uniqueTokens.length, 'de', tokens.length);
           
-          // También limpiamos la colección de duplicados en Firestore
-          await db.collection('adminTokens').get().then(snap => {
-            const grouped = {};
-            snap.docs.forEach(doc => {
-              const user = snap.doc(data).data().user || 'anónimo';
-              if (!grouped[user]) grouped[user] = [];
-              grouped[user].push({ id: doc.id, token: doc.data().token });
-            });
-            for (const user of Object.keys(grouped)) {
-              if (grouped[user].length > 1) {
-                // Mantener el primero, borrar los demás
-                const toDelete = grouped[user].slice(1).map(d => d.id);
-                console.log('[PUSH] Eliminando duplicados para usuario:', user, toDelete.length);
-                await db.collection('adminTokens').deleteMany(...toDelete);
+          // También limpiamos la colección de duplicados en Firestore (borrado individual)
+          const grouped = {};
+          tokensSnap.docs.forEach(doc => {
+            const data = doc.data();
+            const user = data.user || 'anónimo';
+            if (!grouped[user]) grouped[user] = [];
+            grouped[user].push({ id: doc.id, token: data.token });
+          });
+          for (const user of Object.keys(grouped)) {
+            if (grouped[user].length > 1) {
+              // Mantener el primero, borrar los demás
+              const toDelete = grouped[user].slice(1);
+              console.log('[PUSH] Eliminando duplicados para usuario:', user, toDelete.length);
+              for (const item of toDelete) {
+                await db.collection('adminTokens').doc(item.id).delete().catch(() => {});
               }
             }
-          }).catch(err => console.log('[PUSH] ⚠️ No se pudieron limpiar duplicados:', err));
+          }
           
           // Re-colectar tokens únicos después de limpieza
           const finalTokens = [];
