@@ -26,6 +26,37 @@ const app = express();
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 
+// ========== ZONA HORARIA ==========
+// Render corre en UTC, pero la clinica opera en America/Montevideo (UTC-3).
+// Sin esto, toda fecha/hora se corre +3h al guardar y -3h al mostrar.
+const TZ_CLINICA = 'America/Montevideo';
+
+// Convierte un instante (Date/ISO en UTC) a la hora de la clinica -> "HH:MM"
+function horaLocal(date) {
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: TZ_CLINICA, hour: '2-digit', minute: '2-digit', hour12: false
+  }).format(new Date(date));
+}
+
+// Fecha en hora de la clinica -> "YYYY-MM-DD"
+function fechaLocal(date) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: TZ_CLINICA, year: 'numeric', month: '2-digit', day: '2-digit'
+  }).format(new Date(date));
+}
+
+// "YYYY-MM-DD" + "HH:MM" (hora de pared de la clinica) -> texto legible en es-UY.
+// La hora guardada YA es hora de Montevideo, asi que se formatea en UTC para que
+// no se le reste el offset otra vez. Antes se usaba
+// new Date(`${fecha}T${hora}:00`).toLocaleString('es-UY', {timeZone:'America/Montevideo'}),
+// que tomaba la hora como UTC del servidor y la mostraba corrida -3h.
+function formatearCita(fecha, hora) {
+  const [y, m, d] = fecha.split('-');
+  const [hh, mm] = hora.split(':');
+  const f = new Date(Date.UTC(+y, +m - 1, +d, +hh, +mm));
+  return f.toLocaleString('es-UY', { timeZone: 'UTC' });
+}
+
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`, req.body ? Object.keys(req.body) : '');
   next();
@@ -83,7 +114,7 @@ async function enviarRecordatorios() {
       if (!d.email || d.recordatorioEnviado) return;
       const estadosNoRecordar = ['cancelada', 'completada', 'noasistio'];
       if (estadosNoRecordar.includes(d.estado)) return;
-      const fe = new Date(`${d.fecha}T${d.hora}:00`).toLocaleString('es-UY', { timeZone: 'America/Montevideo' });
+      const fe = formatearCita(d.fecha, d.hora);
       resend.emails.send({
         from: 'Clinica del Pie Isabel Aguiar <onboarding@resend.dev>',
         to: d.email,
@@ -159,7 +190,7 @@ app.post(['/agendar', '/api/agendar', '/db/agendar', '/api/db/agendar'], async (
       estado: 'pendiente', notas: '', createdAt: FieldValue.serverTimestamp(),
     });
 
-    const fechaHora = new Date(`${fecha}T${hora}:00`).toLocaleString('es-UY', { timeZone: 'America/Montevideo' });
+    const fechaHora = formatearCita(fecha, hora);
 
     if (process.env.RESEND_API_KEY) {
       if (email) {
@@ -349,7 +380,7 @@ app.put(['/admin/citas/:id', '/api/admin/citas/:id', '/db/admin/citas/:id', '/ap
         await docRef.update(updates);
 
         if (estadoMatch && estadoMatch[1].trim() === 'cancelada') {
-          const feVieja = new Date(`${data.fecha}T${data.hora}:00`).toLocaleString('es-UY', { timeZone: 'America/Montevideo' });
+          const feVieja = formatearCita(data.fecha, data.hora);
           const nomPac = data.paciente || 'Paciente';
           const emailPac = data.email || '';
           if (process.env.RESEND_API_KEY) {
@@ -379,14 +410,22 @@ app.put(['/admin/citas/:id', '/api/admin/citas/:id', '/db/admin/citas/:id', '/ap
     if (req.body.start) {
       const start = new Date(req.body.start.dateTime);
       const end = new Date(req.body.end.dateTime);
-      const nuevaFecha = start.toISOString().slice(0, 10);
-      const nuevaHora = start.toTimeString().slice(0, 5);
-      const horaFin = end.toTimeString().slice(0, 5);
+      // El front manda el instante en UTC. Guardamos la hora de la clinica,
+      // no la del servidor (Render corre en UTC -> se corria +3h).
+      const nuevaFecha = fechaLocal(start);
+      const nuevaHora = horaLocal(start);
+      const horaFin = horaLocal(end);
 
-      await docRef.update({ fecha: nuevaFecha, hora: nuevaHora, hora_fin: horaFin });
+      await docRef.update({
+        fecha: nuevaFecha, hora: nuevaHora, hora_fin: horaFin,
+        // Auditoria: deja rastro de que esta cita fue reagendada y desde cuando.
+        // Permite distinguir futuras citas corridas de las ya agendadas por el publico.
+        reagendada: true,
+        reagendadaEn: FieldValue.serverTimestamp()
+      });
 
-      const feVieja = new Date(`${data.fecha}T${data.hora}:00`).toLocaleString('es-UY', { timeZone: 'America/Montevideo' });
-      const feNueva = new Date(`${nuevaFecha}T${nuevaHora}:00`).toLocaleString('es-UY', { timeZone: 'America/Montevideo' });
+      const feVieja = formatearCita(data.fecha, data.hora);
+      const feNueva = formatearCita(nuevaFecha, nuevaHora);
       const nomPac = data.paciente || 'Paciente';
       const emailPac = data.email || '';
 
@@ -415,7 +454,7 @@ app.put(['/admin/citas/:id', '/api/admin/citas/:id', '/db/admin/citas/:id', '/ap
     await docRef.update(req.body);
 
     if (req.body.estado === 'cancelada') {
-      const feVieja = new Date(`${data.fecha}T${data.hora}:00`).toLocaleString('es-UY', { timeZone: 'America/Montevideo' });
+      const feVieja = formatearCita(data.fecha, data.hora);
       const nomPac = data.paciente || 'Paciente';
       const emailPac = data.email || '';
       if (process.env.RESEND_API_KEY) {
