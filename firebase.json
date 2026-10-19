@@ -11,10 +11,6 @@
     ],
     "rewrites": [
       {
-        "source": "/prospector/**",
-        "destination": "/prospector/index.html"
-      },
-      {
         "source": "/firebase-messaging-sw.js",
         "destination": "/firebase-messaging-sw.js"
       },
@@ -51,15 +47,6 @@
         "source": "/manifest.json",
         "headers": [
           { "key": "Cache-Control", "value": "public, max-age=31536000" }
-        ]
-      },
-      {
-        "source": "/prospector/assets/**",
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "public, max-age=31536000, immutable"
-          }
         ]
       }
     ]
