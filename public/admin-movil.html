@@ -538,6 +538,7 @@
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
     import { getAuth, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
     import { getFirestore, collection, getDocs, doc, setDoc, serverTimestamp, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+    import { getMessaging, getToken, onMessage } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js';
 
     const firebaseConfig = { apiKey: 'AIzaSyCT25mmO3VtQYGr8Cwzj2t-NIF3gsWkTOg', authDomain: 'clinicadelpieisabelaguiar.firebaseapp.com', projectId: 'clinicadelpieisabelaguiar', messagingSenderId: '685381652711', appId: '1:685381652711:web:859a412d8779b53d49d242' };
     const app = initializeApp(firebaseConfig);
@@ -659,7 +660,6 @@
         const reg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
         console.log('[PUSH] ✅ Service Worker registrado:', reg.scope, 'state:', reg.active?.state);
         
-        const { getMessaging, getToken, onMessage, onTokenRefresh } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js');
         const messaging = getMessaging(app);
         console.log('[PUSH] Firebase Messaging inicializado');
         
@@ -681,11 +681,6 @@
           if (typeof cargarCitas === 'function') cargarCitas();
         });
 
-        onTokenRefresh(messaging, async (newToken) => {
-          console.log('[PUSH] Token refrescado automáticamente:', newToken.substring(0, 30) + '...');
-          await guardarTokenEnBackend(newToken);
-          await limpiarTokensAntiguosUsuario(currentUser.email, newToken);
-        });
       } catch (e) {
         console.error('[PUSH] ❌ Error inicializando push:', e);
         showToast('❌ Error push: ' + e.message, 'error');
@@ -772,7 +767,6 @@
       try {
         if (!('serviceWorker' in navigator) || !('PushManager' in window)) { showToast('❌ Navegador no soporta push', 'error'); return; }
         const reg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-        const { getMessaging, getToken } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js');
         const messaging = getMessaging(app);
         const permission = await Notification.requestPermission();
         if (permission !== 'granted') { showToast('❌ Permiso denegado. Habilitá en configuración del sitio.', 'error'); mostrarModalBateria(); return; }
